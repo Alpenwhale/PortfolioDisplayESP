@@ -1,0 +1,4 @@
+# host tools, not for the board
+esptool
+mpremote
+micropython-esp8266-stubs   # IDE autocomplete
