@@ -1,14 +1,14 @@
-"""Minimal SPI TFT driver for ILI9341 / ST7789, no framebuffer."""
+"""Generic SPI TFT driver (MIPI-DCS style: ILI9341, ST7789, ...), no framebuffer."""
 # full fb = 150 KB, ESP8266 has ~40 KB. so we write straight to the panel.
 import time
 import framebuf
 from machine import Pin, SPI
 from display.base import Display
 
-# MADCTL per rotation 0..3
-_MADCTL = {
-    "ili9341": (0x48, 0x28, 0x88, 0xE8),  # BGR
-    "st7789": (0x00, 0x60, 0xC0, 0xA0),   # RGB
+# MADCTL rotation bits per controller (BGR added separately)
+_ROT = {
+    "ili9341": (0x40, 0x20, 0x80, 0xE0),
+    "st7789": (0x00, 0x60, 0xC0, 0xA0),
 }
 
 # power/vcom/gamma. minimal init leaves some panels black.
@@ -49,14 +49,19 @@ _INIT = {
 
 
 class TFT(Display):
-    """240x320 SPI TFT, RGB565."""
+    """SPI TFT, RGB565. Panel specifics come from config."""
 
-    def __init__(self, spi: SPI, cs: Pin | None, dc: Pin, rst: Pin,
-                 rotation: int = 0, controller: str = "ili9341") -> None:
-        """Reset and init the panel. cs=None for modules without CS."""
+    def __init__(self, spi: SPI, dc: Pin, rst: Pin, cs: Pin | None = None,
+                 width: int = 240, height: int = 320, x_offset: int = 0, y_offset: int = 0,
+                 rotation: int = 0, controller: str = "ili9341",
+                 invert: bool = False, bgr: bool = True) -> None:
+        """Reset and init. width/height = native portrait size."""
         self.spi, self.dc, self.rst = spi, dc, rst
         self.cs = cs if cs is not None else (lambda v: None)
-        self.width, self.height = (240, 320) if rotation % 2 == 0 else (320, 240)
+        landscape = rotation % 2 == 1
+        self.width, self.height = (height, width) if landscape else (width, height)
+        self._xo, self._yo = (y_offset, x_offset) if landscape else (x_offset, y_offset)
+
         self.cs(1)
         self.rst(0)
         time.sleep_ms(50)
@@ -67,9 +72,8 @@ class TFT(Display):
         for c, data in _INIT[controller]:
             self._cmd(c, data)
         self._cmd(0x3A, b"\x55")  # 16bpp
-        self._cmd(0x36, bytes([_MADCTL[controller][rotation % 4]]))
-        if controller == "st7789":
-            self._cmd(0x21)  # st7789 panels are usually inverted
+        self._cmd(0x36, bytes([_ROT[controller][rotation % 4] | (0x08 if bgr else 0)]))
+        self._cmd(0x21 if invert else 0x20)
         self._cmd(0x11)  # sleep out
         time.sleep_ms(150)
         self._cmd(0x13)  # normal mode
@@ -89,6 +93,7 @@ class TFT(Display):
 
     def _window(self, x: int, y: int, w: int, h: int) -> None:
         """Set draw window and start RAM write."""
+        x, y = x + self._xo, y + self._yo
         x1, y1 = x + w - 1, y + h - 1
         self._cmd(0x2A, bytes([x >> 8, x & 0xFF, x1 >> 8, x1 & 0xFF]))
         self._cmd(0x2B, bytes([y >> 8, y & 0xFF, y1 >> 8, y1 & 0xFF]))

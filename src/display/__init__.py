@@ -2,17 +2,30 @@
 from display.base import Display
 
 
+def make_spi(cfg, soft: bool = False, baud: int = 0):
+    """SPI bus for the TFT. soft=True forces SoftSPI (diag)."""
+    from machine import Pin, SPI, SoftSPI
+
+    baud = baud or cfg.TFT_SPI_BAUD
+    pol, pha = cfg.TFT_SPI_MODE >> 1, cfg.TFT_SPI_MODE & 1
+    if soft or cfg.TFT_SPI_ID < 0:
+        return SoftSPI(baudrate=baud, polarity=pol, phase=pha, sck=Pin(cfg.TFT_SCK),
+                       mosi=Pin(cfg.TFT_MOSI), miso=Pin(cfg.TFT_MISO))
+    return SPI(cfg.TFT_SPI_ID, baudrate=baud, polarity=pol, phase=pha)
+
+
 def create_display(cfg) -> Display:
     """Build the display picked in cfg.DISPLAY."""
-    if cfg.DISPLAY in ("ili9341", "st7789"):
-        from machine import Pin, SPI
+    if cfg.DISPLAY == "tft":
+        from machine import Pin
         from display.tft import TFT
 
-        mode = cfg.TFT_SPI_MODE
-        spi = SPI(1, baudrate=cfg.TFT_SPI_BAUD, polarity=mode >> 1, phase=mode & 1)
         cs = Pin(cfg.TFT_CS, Pin.OUT) if cfg.TFT_CS is not None else None
-        return TFT(spi, cs, Pin(cfg.TFT_DC, Pin.OUT), Pin(cfg.TFT_RST, Pin.OUT),
-                   rotation=cfg.TFT_ROTATION, controller=cfg.DISPLAY)
+        return TFT(make_spi(cfg), Pin(cfg.TFT_DC, Pin.OUT), Pin(cfg.TFT_RST, Pin.OUT), cs=cs,
+                   width=cfg.TFT_WIDTH, height=cfg.TFT_HEIGHT,
+                   x_offset=cfg.TFT_X_OFFSET, y_offset=cfg.TFT_Y_OFFSET,
+                   rotation=cfg.TFT_ROTATION, controller=cfg.TFT_CONTROLLER,
+                   invert=cfg.TFT_INVERT, bgr=cfg.TFT_BGR)
 
     if cfg.DISPLAY == "ssd1306":
         from machine import Pin, SoftI2C
