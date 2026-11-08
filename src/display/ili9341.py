@@ -11,9 +11,10 @@ _MADCTL = (0x48, 0x28, 0x88, 0xE8)  # rot 0..3, BGR
 class ILI9341(Display):
     """ILI9341 over SPI, RGB565."""
 
-    def __init__(self, spi: SPI, cs: Pin, dc: Pin, rst: Pin, rotation: int = 0) -> None:
-        """Reset and init the panel."""
-        self.spi, self.cs, self.dc, self.rst = spi, cs, dc, rst
+    def __init__(self, spi: SPI, cs: Pin | None, dc: Pin, rst: Pin, rotation: int = 0) -> None:
+        """Reset and init the panel. cs=None for modules without CS."""
+        self.spi, self.dc, self.rst = spi, dc, rst
+        self.cs = cs if cs is not None else (lambda v: None)
         self.width, self.height = (240, 320) if rotation % 2 == 0 else (320, 240)
         self.cs(1)
         self.rst(0)
