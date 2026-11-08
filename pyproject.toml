@@ -1,0 +1,17 @@
+[project]
+name = "portfoliodisplay"
+version = "0.1.0"
+description = "Portfolio ticker on ESP8266 + TFT, MicroPython"
+requires-python = ">=3.12,<3.15"  # 3.15: no pyyaml wheels yet
+dependencies = []
+
+# host-only tooling, never goes to the board
+[dependency-groups]
+dev = [
+    "esptool",
+    "mpremote",
+    "micropython-esp8266-stubs",  # IDE autocomplete
+]
+
+[tool.uv]
+package = false  # not a pip package, just a project

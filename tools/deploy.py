@@ -1,4 +1,4 @@
-"""Upload src/ to the board and reset. Usage: python tools/deploy.py [PORT]"""
+"""Upload src/ to the board and reset. Usage: uv run tools/deploy.py [PORT]"""
 import subprocess
 import sys
 from pathlib import Path
