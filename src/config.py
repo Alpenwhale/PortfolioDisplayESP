@@ -7,7 +7,7 @@ TFT_CS = None        # module has no CS pin, tied low on board
 TFT_DC: int = 4      # D2
 TFT_RST: int = 5     # D1
 TFT_ROTATION: int = 1  # odd = landscape
-TFT_SPI_BAUD: int = 40_000_000
+TFT_SPI_BAUD: int = 20_000_000  # 40M too flaky on dupont wires
 TFT_SPI_MODE: int = 3  # no-CS modules want mode 3
 
 # SSD1306, later
