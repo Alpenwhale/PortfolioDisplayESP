@@ -3,12 +3,13 @@ import subprocess
 import sys
 from pathlib import Path
 
-SRC = Path(__file__).resolve().parent.parent / "src"
+TOOLS = Path(__file__).resolve().parent
+SRC = TOOLS.parent / "src"
 
 
 def build_args(port: str) -> list[str]:
-    """Chain all mpremote cp calls into one session."""
-    args = [sys.executable, "-m", "mpremote", "connect", port]
+    """Chain all cp calls into one mpremote session."""
+    args = [sys.executable, str(TOOLS / "mpr.py"), "connect", port]
     for item in sorted(SRC.iterdir()):
         if item.name == "__pycache__":
             continue
