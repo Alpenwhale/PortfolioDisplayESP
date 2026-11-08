@@ -1,8 +1,8 @@
 """Hardware config. Pins are GPIO numbers, not D-labels."""
 
-DISPLAY: str = "ili9341"  # or "ssd1306"
+DISPLAY: str = "ili9341"  # "ili9341" | "st7789" | "ssd1306"
 
-# ILI9341, HSPI is fixed: SCK=14, MOSI=13, MISO=12
+# TFT, HSPI is fixed: SCK=14, MOSI=13, MISO=12
 TFT_CS = None        # module has no CS pin, tied low on board
 TFT_DC: int = 4      # D2
 TFT_RST: int = 5     # D1

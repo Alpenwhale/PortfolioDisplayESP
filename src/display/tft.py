@@ -1,17 +1,22 @@
-"""Minimal ILI9341 driver, no framebuffer."""
+"""Minimal SPI TFT driver for ILI9341 / ST7789, no framebuffer."""
 # full fb = 150 KB, ESP8266 has ~40 KB. so we write straight to the panel.
 import time
 import framebuf
 from machine import Pin, SPI
 from display.base import Display
 
-_MADCTL = (0x48, 0x28, 0x88, 0xE8)  # rot 0..3, BGR
+# MADCTL per rotation 0..3
+_MADCTL = {
+    "ili9341": (0x48, 0x28, 0x88, 0xE8),  # BGR
+    "st7789": (0x00, 0x60, 0xC0, 0xA0),   # RGB
+}
 
 
-class ILI9341(Display):
-    """ILI9341 over SPI, RGB565."""
+class TFT(Display):
+    """240x320 SPI TFT, RGB565."""
 
-    def __init__(self, spi: SPI, cs: Pin | None, dc: Pin, rst: Pin, rotation: int = 0) -> None:
+    def __init__(self, spi: SPI, cs: Pin | None, dc: Pin, rst: Pin,
+                 rotation: int = 0, controller: str = "ili9341") -> None:
         """Reset and init the panel. cs=None for modules without CS."""
         self.spi, self.dc, self.rst = spi, dc, rst
         self.cs = cs if cs is not None else (lambda v: None)
@@ -26,7 +31,10 @@ class ILI9341(Display):
         self._cmd(0x11)  # sleep out
         time.sleep_ms(120)
         self._cmd(0x3A, b"\x55")  # 16bpp
-        self._cmd(0x36, bytes([_MADCTL[rotation % 4]]))
+        self._cmd(0x36, bytes([_MADCTL[controller][rotation % 4]]))
+        if controller == "st7789":
+            self._cmd(0x21)  # st7789 panels are usually inverted
+        self._cmd(0x13)  # normal mode
         self._cmd(0x29)  # on
         self._glyph = framebuf.FrameBuffer(bytearray(8), 8, 8, framebuf.MONO_HLSB)
 
