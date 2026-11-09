@@ -1,8 +1,35 @@
-"""ISIN/WKN -> Yahoo symbol. Needed once per asset, so it lives apart from net.quotes (RAM)."""
-from net.quotes import _open, _q, _chunks
+"""ISIN/WKN -> Yahoo symbol. Needed once per asset, so it lives apart from net.quotes (RAM).
 
+Self-contained on purpose: during its TLS handshake net.quotes must not be loaded too.
+"""
+import requests
+
+_HDR = {"User-Agent": "Mozilla/5.0"}  # yahoo 429s without one
 _SEARCH = "https://query2.finance.yahoo.com/v1/finance/search?q=%s&quotesCount=10&newsCount=0&listsCount=0"
 AUTO = (".DE", ".F")  # "auto" exchange prefers Xetra, then Frankfurt
+
+
+def _q(s: str) -> str:
+    """Minimal url-encode."""
+    return s.replace("%", "%25").replace(" ", "%20").replace("&", "%26")
+
+
+def _open(url: str):
+    """GET, raises OSError on non-200. Caller closes."""
+    r = requests.get(url, headers=_HDR)
+    if r.status_code != 200:
+        r.close()
+        raise OSError("HTTP %d" % r.status_code)
+    return r
+
+
+def _chunks(r, n: int = 256):
+    """Body in small pieces straight off the TLS socket."""
+    while True:
+        c = r.raw.read(n)
+        if not c:
+            return
+        yield c
 
 
 def is_code(ident: str) -> bool:

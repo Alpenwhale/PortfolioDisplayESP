@@ -3,6 +3,7 @@
 Usage: uv run tools/portal_shots.py
 Serves the real src/www files on localhost with example /cfg.json data and takes
 phone-width shots with headless Edge/Chrome. No board needed.
+Whole pages (1_..4_) plus one shot per form section (wifi, display, assets, security).
 """
 import json
 import shutil
@@ -32,12 +33,18 @@ ASSETS = [
 ]
 NETS = ["FRITZ!Box 7590 XY", "Home", "Neighbour-5G"]
 
-# name -> (path, cfg.json)
+CONFIGURED = {"s": dict(BASE, ssid="Home", mode="port", period="ytd"), "items": ASSETS,
+              "pw": True, "pp": True, "max": 50, "reset_s": 10, "nets": NETS}
+
+# name -> (path, cfg.json). "?only=<section>" shows just that part of the form (for the field tables)
 VIEWS = {
+    "wifi": ("/?only=wifi", CONFIGURED),
+    "display": ("/?only=display", CONFIGURED),
+    "assets": ("/?only=assets", CONFIGURED),
+    "security": ("/?only=security", CONFIGURED),
     "1_first_setup": ("/", {"s": BASE, "items": [], "pw": False, "pp": False, "max": 50, "reset_s": 10,
                             "nets": NETS}),
-    "2_configured": ("/", {"s": dict(BASE, ssid="Home", mode="port", period="ytd"), "items": ASSETS,
-                           "pw": True, "pp": True, "max": 50, "reset_s": 10, "nets": NETS}),
+    "2_configured": ("/", CONFIGURED),
     "3_saved": ("/saved", None),
     "4_back_after_save": ("/?ok", {"s": dict(BASE, ssid="Home"), "items": ASSETS[:2], "pw": True,
                                    "pp": False, "max": 50, "reset_s": 10, "nets": NETS}),
@@ -53,13 +60,18 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         """Static files + example cfg.json."""
-        path = self.path.split("?")[0]
+        path, _, query = self.path.partition("?")
         if path == "/cfg.json":
             body, ctype = json.dumps(STATE["cfg"]).encode(), "application/json"
         else:
             name = {"/": "index.html", "/s.css": "s.css", "/saved": "saved.html"}.get(path, "index.html")
             body = (WWW / name).read_bytes()
             ctype = "text/css" if name.endswith(".css") else "text/html; charset=utf-8"
+
+            # section-only shot: hide everything else (screenshot helper, not part of the device)
+            if query.startswith("only="):
+                css = "<style>h1,#note,form>button,section:not(#%s){display:none}</style>" % query[5:]
+                body = body.replace(b"</title>", b"</title>" + css.encode())
         self.send_response(200)
         self.send_header("Content-Type", ctype)
         self.end_headers()

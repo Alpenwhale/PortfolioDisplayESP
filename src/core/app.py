@@ -82,11 +82,23 @@ class App:
 
     @property
     def ui(self):
-        """Layout helper, created on first use after each release_ui()."""
+        """Layout helper, created on first use after each release_ui(). Re-attaches a parked display."""
+        if self.d is None:
+            from display import create_display
+            self.d = create_display(config, init=False)
+            del create_display
+            drop("display")
         if self._ui is None:
             from ui.layout import UI
             self._ui = UI(self.d)
         return self._ui
+
+    def park_display(self) -> None:
+        """Before a TLS fetch: drop the TFT driver code (~4 KB). The panel keeps showing its image."""
+        if config.DISPLAY != "tft" or self.d is None:
+            return
+        self._ui = self.d = None
+        drop("ui.layout", "ui.font", "display.tft", "display.base", "display")
 
     def release_ui(self) -> None:
         """After a screen is drawn: drop layout + drawing modules, close font files."""
@@ -100,34 +112,6 @@ class App:
         """Full-screen text, then free the layout again."""
         self.ui.message(title, lines)
         self.release_ui()
-
-    # --- setup mode loop (pages come from core.setup, loaded per flip) ---
-
-    def setup_loop(self, ssid: str, pw: str, reason: str) -> None:
-        """Serve the portal on the setup AP until saved; never returns."""
-        page, pages, flip, idle = 0, 1, 0, 0
-        while True:
-            now = time.ticks_ms()
-            if self.serve():
-                idle = 0
-
-            # rotate pages, but keep "Saved / Restarting" up once a reboot is pending
-            if not self._reboot and (not flip or time.ticks_diff(now, flip) >= 0):
-                from core import setup
-                pages = setup.setup_page(self.ui, page, ssid, pw, self.ip, reason)
-                del setup
-                self.release_ui()
-                page = (page + 1) % pages
-                flip = later(config.PAGE_S * 1000 if pages > 1 else 3600000)
-
-            # idle too long with a known wifi -> reboot, maybe the router is back
-            if not idle:
-                idle = later(config.SETUP_IDLE_S * 1000)
-            if self.s["ssid"] and due(idle):
-                self.reboot_soon(0)
-            self.button()
-            self.maybe_reboot()
-            time.sleep_ms(50)
 
     # --- assets ---
 

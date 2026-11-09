@@ -93,8 +93,14 @@ def info_page(ui, page: int, ip: str) -> int:
     return 2
 
 
-def start(app) -> tuple:
-    """Open the WPA2 setup AP + http server. Returns (ssid, pw); the loop is App.setup_loop."""
+def run(app, reason: str) -> None:
+    """Setup mode: WPA2 AP + portal until a save reboots the device. Never returns.
+
+    This module stays loaded the whole time (setup mode has RAM to spare, no TLS here),
+    so the page functions are called directly instead of re-imported.
+    """
+    import time
+    from core.app import later, due
     app.ap_mode = True
 
     # AP password: random once per flash, then static, shown only on the display
@@ -107,4 +113,24 @@ def start(app) -> tuple:
     ssid = wifi.ap_name(config.AP_PREFIX)
     app.ip = wifi.ap(ssid, pw)
     app.listen()
-    return ssid, pw
+
+    page, pages, flip, idle = 0, 1, 0, 0
+    while True:
+        if app.serve():
+            idle = 0
+
+        # rotate pages, but keep "Saved / Restarting" up once a reboot is pending
+        if not app._reboot and (not flip or due(flip)):
+            pages = setup_page(app.ui, page, ssid, pw, app.ip, reason)
+            app.release_ui()
+            page = (page + 1) % pages
+            flip = later(config.PAGE_S * 1000 if pages > 1 else 3600000)
+
+        # idle too long with a known wifi -> reboot, maybe the router is back
+        if not idle:
+            idle = later(config.SETUP_IDLE_S * 1000)
+        if app.s["ssid"] and due(idle):
+            app.reboot_soon(0)
+        app.button()
+        app.maybe_reboot()
+        time.sleep_ms(50)

@@ -151,7 +151,8 @@ def check_qr() -> None:
 def main() -> None:
     """Render all screens at both sizes."""
     import shutil
-    shutil.rmtree(OUT, ignore_errors=True)  # no stale shots from renamed screens
+    for tag in ("128x64", "320x240"):  # only our own folders, docs/img/portal belongs to portal_shots.py
+        shutil.rmtree(OUT / tag, ignore_errors=True)
     from core import screens, setup
     from ui.layout import UI
 

@@ -17,8 +17,8 @@ def make_spi(cfg, soft: bool = False, baud: int = 0):
     return SPI(cfg.TFT_SPI_ID, baudrate=baud, polarity=pol, phase=pha)
 
 
-def create_display(cfg) -> Display:
-    """Build the display picked in cfg.DISPLAY."""
+def create_display(cfg, init: bool = True) -> Display:
+    """Build the display picked in cfg.DISPLAY. init=False re-attaches a TFT without touching the panel."""
 
     # SPI TFT (ili9341 / st7789)
     if cfg.DISPLAY == "tft":
@@ -30,7 +30,7 @@ def create_display(cfg) -> Display:
                    width=cfg.TFT_WIDTH, height=cfg.TFT_HEIGHT,
                    x_offset=cfg.TFT_X_OFFSET, y_offset=cfg.TFT_Y_OFFSET,
                    rotation=cfg.TFT_ROTATION, controller=cfg.TFT_CONTROLLER,
-                   invert=cfg.TFT_INVERT, bgr=cfg.TFT_BGR)
+                   invert=cfg.TFT_INVERT, bgr=cfg.TFT_BGR, init=init)
 
     # I2C OLED (0.96" 128x64)
     if cfg.DISPLAY == "ssd1306":

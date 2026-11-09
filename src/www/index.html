@@ -18,9 +18,8 @@
 <h2>Display</h2>
 <label>Mode</label>
 <select name=mode>
-<option value=slide>Slideshow<option value=port>Portfolio return<option value=single>Single asset
+<option value=slide>Slideshow<option value=port>Portfolio return<option value=single>Single asset (the first in the list)
 </select>
-<label>Single asset</label><select name=single></select>
 <label>Show change over</label>
 <select name=period>
 <option value=1d>Day<option value=5d>Week<option value=ytd>Year to date<option value=max>All time
@@ -128,9 +127,7 @@ fetch('/cfg.json').then(r => r.json()).then(c => {
   f.pw.placeholder = c.pw ? 'saved - leave empty to keep' : '';
   for (const n of c.nets) $('#nets').append(new Option(n));
 
-  // single asset picker + rows
-  c.items.forEach((it, i) => f.single.append(new Option(it.name || it.yname || it.id, i)));
-  f.single.value = s.single;
+  // one row per asset, an empty one to start with
   c.items.forEach(addRow);
   if (!c.items.length) addRow({});
 
