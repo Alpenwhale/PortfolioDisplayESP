@@ -1,17 +1,20 @@
-"""App state, boot decision, web serving, FLASH button.
+"""App state, web serving, FLASH button. Shared by setup + normal mode.
 
-Mode-specific code lives elsewhere and is only loaded when needed (RAM):
-core.setup (setup AP), core.run (normal loop + fetching), core.screens (drawing).
+Everything else is loaded only when needed (RAM): core.boot (start decision, dropped
+after), core.setup (setup AP), core.run (normal loop + fetching), core.screens (drawing).
 """
 import gc
 import machine
 import socket
 import sys
 import time
+from array import array
 
 import config
-from net import wifi
 from ui.layout import UI
+
+
+NAN = float("nan")
 
 
 def later(ms: int) -> int:
@@ -25,9 +28,17 @@ def due(t: int) -> bool:
 
 
 def drop(*names: str) -> None:
-    """Unload modules and collect. RAM is the bottleneck on ESP8266."""
+    """Unload modules and collect. RAM is the bottleneck on ESP8266.
+
+    A submodule also hangs as attribute on its package (ui.card on ui), so it has to go
+    from there too, otherwise sys.modules.pop alone frees nothing.
+    """
     for n in names:
         sys.modules.pop(n, None)
+        i = n.rfind(".")
+        parent = sys.modules.get(n[:i]) if i > 0 else None
+        if parent:
+            parent.__dict__.pop(n[i + 1:], None)
     gc.collect()
 
 
@@ -45,8 +56,10 @@ class App:
         del store
         drop("data.store")
 
+        # assets: numbers only, records stay on flash
+        self.load_assets()
+
         # runtime state
-        self.q = {}              # item id -> {p, b, cur, n} and/or {err}
         self.fx = {}             # currency -> rate into the display currency
         self.ap_mode = False
         self.ip = ""
@@ -64,20 +77,64 @@ class App:
         self._shown_s = -1
         self.btn = machine.Pin(config.BUTTON_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
 
+    # --- assets ---
+
+    def load_assets(self) -> None:
+        """Float arrays per asset index (~20 B each). NaN price = not fetched yet."""
+        from data import assets
+        qty, buy = [], []
+        for rec in assets.each():
+            qty.append(rec.get("qty") or 0.0)
+            buy.append(rec.get("buy") or 0.0)
+        del assets
+        drop("data.assets")
+
+        # one slot per asset; currency as index into self.curs
+        self.n = n = len(qty)
+        self.qty = array("f", qty)
+        self.buy = array("f", buy)
+        self.price = array("f", [NAN] * n)
+        self.base = array("f", [NAN] * n)
+        self.cur = bytearray(n)
+        self.curs = [""]
+        self.err = {}  # index -> last fetch error, rare
+
+    def asset(self, i: int) -> dict:
+        """Full record of asset i, read from flash."""
+        from data import assets
+        rec = assets.read(i)
+        del assets
+        drop("data.assets")
+        return rec
+
+    def set_quote(self, i: int, p: float, b: float, code: str) -> None:
+        """Store a converted quote in the arrays."""
+        if code not in self.curs:
+            self.curs.append(code)
+        self.price[i], self.base[i], self.cur[i] = p, b, self.curs.index(code)
+        self.err.pop(i, None)
+
     # --- called by portal / setup ---
 
     def applied(self) -> None:
-        """Settings changed without reboot: refetch what's new, redraw."""
-        ids = {it["id"] for it in self.s["items"]}
-        self.q = {k: v for k, v in self.q.items() if k in ids}
-        self.queue = [i for i, it in enumerate(self.s["items"]) if it["id"] not in self.q]
+        """Asset list or settings changed without reboot: reload numbers, refetch all, redraw."""
+        self.load_assets()
+        self.queue = list(range(self.n))
         self.slide = 0
         self.dirty = True
 
     def refetch_all(self) -> None:
-        """Period or currency changed: every cached price is stale."""
-        self.q, self.fx = {}, {}
+        """Period or currency changed: rates are stale too."""
+        self.fx = {}
         self.applied()
+
+    def saved(self, reboot: bool) -> None:
+        """Feedback on the device itself after a portal save."""
+        if reboot:
+            self.ui.message("Saved", ["Restarting..."])
+            self.reboot_soon()
+        else:
+            self.applied()
 
     def reboot_soon(self, ms: int = 1500) -> None:
         """Reset after the http response went out."""
@@ -115,7 +172,7 @@ class App:
             print("portal:", repr(e))
         finally:
             cl.close()
-            drop("net.portal", "data.store")
+            drop("net.portal", "data.store", "data.assets")
         return True
 
     # --- FLASH button ---
@@ -151,40 +208,3 @@ class App:
             if held < 1500 and not self.ap_mode:
                 self.info_until, self.info_page, self.info_flip = later(config.INFO_S * 1000), 0, 0
             self.dirty = True
-
-    # --- boot ---
-
-    def run(self) -> None:
-        """Entry point, never returns."""
-        u = self.ui
-        u.message("PortfolioDisplay", ["Starting...", "Hold FLASH = setup"])
-
-        # FLASH held during the first 2 s -> setup mode (also how you get past a portal password)
-        setup = False
-        for _ in range(20):
-            if not self.btn.value():
-                setup = True
-                break
-            time.sleep_ms(100)
-        reason = "FLASH pressed" if setup else ""
-
-        # no wifi yet / wifi down -> setup mode
-        if not setup and not self.s["ssid"]:
-            setup, reason = True, "no Wi-Fi set"
-        if not setup:
-            u.message("Connecting", [self.s["ssid"]])
-            self.ip = wifi.sta(self.s["ssid"], self.sec.get("pw", ""), config.WIFI_TIMEOUT_S)
-            if not self.ip:
-                setup, reason = True, "Wi-Fi not found"
-
-        # wait for the button release so it isn't read as a reset hold
-        while not self.btn.value():
-            time.sleep_ms(50)
-        gc.collect()
-
-        # hand over to the mode, each loads only its own code
-        if setup:
-            from core import setup as mode
-            mode.run(self, reason)
-        from core import run as mode
-        mode.loop(self)

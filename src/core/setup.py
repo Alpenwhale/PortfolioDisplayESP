@@ -4,12 +4,12 @@ Both show QR codes so a phone can join/open without typing. Small screens get ro
 pages (QR wifi, QR url, plain text), big screens get everything at once.
 Imported only when needed, then unloaded.
 """
-import gc
-import sys
 import time
 
 import config
+from core.app import drop
 from net import wifi
+from ui import font
 
 
 def _qr(text: str) -> tuple:
@@ -18,8 +18,30 @@ def _qr(text: str) -> tuple:
     try:
         return qr.encode(text)
     finally:
-        sys.modules.pop("ui.qr", None)
-        gc.collect()
+        del qr
+        drop("ui.qr")
+
+
+def _draw_qr(ui, mat, n: int, x: int, y: int, scale: int, quiet: int) -> None:
+    """QR matrix as dark-on-light, one module row per blit."""
+    side = (n + 2 * quiet) * scale
+    rb = (side + 7) // 8
+    for my in range(-quiet, n + quiet):
+
+        # 1-bit line of this module row
+        row = bytearray(rb)
+        if 0 <= my < n:
+            for mx in range(n):
+                if mat[my * n + mx]:
+                    for k in range(scale):
+                        px = (mx + quiet) * scale + k
+                        row[px >> 3] |= 0x80 >> (px & 7)
+
+        # repeat it scale times (bytearray * int doesn't exist on esp8266)
+        buf = bytearray(rb * scale)
+        for k in range(scale):
+            buf[k * rb:(k + 1) * rb] = row
+        ui.d.blit_mono(buf, side, scale, x, y + (my + quiet) * scale, ui.bg, ui.fg)
 
 
 def _qr_panel(ui, text: str, caption: list) -> None:
@@ -32,7 +54,7 @@ def _qr_panel(ui, text: str, caption: list) -> None:
     scale = max(1, min(d.height, d.width // 2) // (n + 2 * quiet))
     side = (n + 2 * quiet) * scale
     d.fill(ui.bg)
-    ui.qr(mat, n, 0, (d.height - side) // 2, scale, quiet)
+    _draw_qr(ui, mat, n, 0, (d.height - side) // 2, scale, quiet)
     ui.column(caption, side, d.width - side)
     d.show()
 
@@ -82,7 +104,7 @@ def run(app, reason: str) -> None:
     from data import store
     pw = store.ap_password()
     del store
-    sys.modules.pop("data.store", None)
+    drop("data.store")
     ssid = wifi.ap_name(config.AP_PREFIX)
     app.ip = wifi.ap(ssid, pw)
     app.listen()
@@ -94,8 +116,10 @@ def run(app, reason: str) -> None:
         now = time.ticks_ms()
         if app.serve():
             idle = 0
-        if not flip or time.ticks_diff(now, flip) >= 0:
+        # rotate pages, but keep "Saved / Restarting" up once a reboot is pending
+        if not app._reboot and (not flip or time.ticks_diff(now, flip) >= 0):
             pages = setup_page(app.ui, page, ssid, pw, app.ip, reason)
+            font.release()
             page = (page + 1) % pages
             flip = time.ticks_add(now, config.PAGE_S * 1000) if pages > 1 else time.ticks_add(now, 3600000)
         if not idle:

@@ -6,18 +6,21 @@
 <link rel=stylesheet href=/s.css>
 <h1>PortfolioDisplay</h1>
 <p id=note></p>
-<form method=post action=/save id=f>
+<!-- autocomplete/autocorrect/spellcheck off: phone keyboards don't learn or suggest what's typed here -->
+<form method=post action=/save id=f autocomplete=off>
 
 <h2>Wi-Fi</h2>
-<label>Network</label><input name=ssid list=nets autocomplete=off><datalist id=nets></datalist>
+<label>Network</label>
+<input name=ssid list=nets autocomplete=off autocorrect=off autocapitalize=off spellcheck=false>
+<datalist id=nets></datalist>
 <label>Password</label><input name=pw type=password autocomplete=new-password>
 
 <h2>Display</h2>
 <label>Mode</label>
 <select name=mode>
-<option value=slide>Slideshow<option value=port>Portfolio return<option value=single>Single security
+<option value=slide>Slideshow<option value=port>Portfolio return<option value=single>Single asset
 </select>
-<label>Single security</label><select name=single></select>
+<label>Single asset</label><select name=single></select>
 <label>Show change over</label>
 <select name=period>
 <option value=1d>Day<option value=5d>Week<option value=ytd>Year to date<option value=max>All time
@@ -33,14 +36,15 @@
 <option value=native>No conversion (exchange currency)
 </select>
 <div class=g>
-<div><label>Slide time (s)</label><input name=slide_s type=number min=3></div>
-<div><label>Refresh every (s)</label><input name=fetch_s type=number min=60></div>
+<div><label>Slide time (s)</label><input name=slide_s type=number min=3 inputmode=numeric></div>
+<div><label>Refresh every (s)</label><input name=fetch_s type=number min=60 inputmode=numeric></div>
 </div>
 
-<h2>Securities</h2>
+<h2>Assets <span id=count></span></h2>
 <small>ISIN, WKN or ticker (e.g. AAPL). Quantity + buy price are optional, needed for returns.
 Enter the buy price in the display currency above.</small>
 <div id=rows></div>
+<button type=button class=sec id=add>+ Add asset</button>
 
 <h2>Security</h2>
 <label>Password for this page on your network <span id=ppstate></span></label>
@@ -54,7 +58,9 @@ without login. Hold FLASH for <span id=resets>10</span> s = factory reset.</smal
 
 <template id=row>
 <div class=row>
-<label>Identifier <span class=sym></span></label><input data-n=id>
+<div class=rh><label>Identifier <span class=sym></span></label><button type=button class=x title=Remove>&times;</button></div>
+<input data-n=id autocomplete=off autocorrect=off autocapitalize=characters spellcheck=false>
+<input type=hidden data-n=sym><input type=hidden data-n=yname>
 <label>Exchange</label>
 <select data-n=ex>
 <option value=auto>Automatic<option value=.DE>Xetra (DE)<option value=US>NYSE / Nasdaq (US)
@@ -63,45 +69,70 @@ without login. Hold FLASH for <span id=resets>10</span> s = factory reset.</smal
 <option value=.TO>Toronto (CA)<option value=.T>Tokyo (JP)<option value=.HK>Hong Kong (HK)
 <option value=.AX>Sydney (AU)
 </select>
-<label>Description</label><input data-n=name placeholder=automatic>
+<label>Description</label>
+<input data-n=name placeholder=automatic autocomplete=off autocorrect=off spellcheck=false>
 <div class=g>
-<div><label>Quantity</label><input data-n=qty inputmode=decimal></div>
-<div><label>Buy price</label><input data-n=buy inputmode=decimal></div>
+<div><label>Quantity</label><input data-n=qty inputmode=decimal autocomplete=off></div>
+<div><label>Buy price</label><input data-n=buy inputmode=decimal autocomplete=off></div>
 </div>
-<label class=rm><input class=cb type=checkbox data-n=del> remove</label>
 </div>
 </template>
 
 <script>
 // settings come from /cfg.json, secrets never do
 const $ = s => document.querySelector(s), f = $('#f');
+let max = 20;
 if (location.search == '?ok') $('#note').textContent = 'Saved.';
+
+// one asset row from the template
+function addRow(it) {
+  const r = $('#row').content.cloneNode(true), box = r.firstElementChild;
+  for (const e of r.querySelectorAll('[data-n]')) {
+    const v = it[e.dataset.n];
+    if (v != null) e.value = v;
+  }
+  if (!it.ex) r.querySelector('select').value = 'auto';
+  if (it.sym && it.sym != it.id) r.querySelector('.sym').textContent = '→ ' + it.sym;
+  box.dataset.key = (it.id || '') + '|' + (it.ex || 'auto');  // resolved symbol stays valid while this matches
+  r.querySelector('.x').onclick = () => { box.remove(); sync(); };
+  $('#rows').append(r);
+  sync();
+}
+
+// counter + add button state
+function sync() {
+  const n = $('#rows').children.length;
+  $('#count').textContent = n + ' / ' + max;
+  $('#add').disabled = n >= max;
+}
+$('#add').onclick = () => { addRow({}); $('#rows').lastElementChild.querySelector('input').focus(); };
+
+// fields get id0, ex0, ... in on-screen order right before sending.
+// changed id or exchange -> drop the cached yahoo symbol so the device looks it up again
+f.onsubmit = () => {
+  [...$('#rows').children].forEach((box, i) => {
+    const id = box.querySelector('[data-n=id]').value.trim().toUpperCase();
+    const ex = box.querySelector('[data-n=ex]').value;
+    if (box.dataset.key != id + '|' + ex)
+      for (const n of ['sym', 'yname']) box.querySelector('[data-n=' + n + ']').value = '';
+    for (const e of box.querySelectorAll('[data-n]')) e.name = e.dataset.n + i;
+  });
+};
+
 fetch('/cfg.json').then(r => r.json()).then(c => {
   const s = c.s;
+  max = c.max;
 
   // plain fields
   for (const k of ['ssid', 'mode', 'period', 'numfmt', 'cur', 'slide_s', 'fetch_s']) f.elements[k].value = s[k];
   f.pw.placeholder = c.pw ? 'saved - leave empty to keep' : '';
   for (const n of c.nets) $('#nets').append(new Option(n));
 
-  // single security picker
-  s.items.forEach((it, i) => f.single.append(new Option(it.name || it.id, i)));
+  // single asset picker + rows
+  c.items.forEach((it, i) => f.single.append(new Option(it.name || it.yname || it.id, i)));
   f.single.value = s.single;
-
-  // one row per security + one empty row to add
-  const rows = s.items.concat(s.items.length < c.max ? [{}] : []);
-  rows.forEach((it, i) => {
-    const r = $('#row').content.cloneNode(true);
-    for (const e of r.querySelectorAll('[data-n]')) {
-      e.name = e.dataset.n + i;
-      const v = it[e.dataset.n];
-      if (e.type != 'checkbox' && v != null) e.value = v;
-    }
-    if (!it.ex) r.querySelector('select').value = 'auto';
-    if (it.sym && it.sym != it.id) r.querySelector('.sym').textContent = '→ ' + it.sym;
-    if (!it.id) r.querySelector('.rm').hidden = true;
-    $('#rows').append(r);
-  });
+  c.items.forEach(addRow);
+  if (!c.items.length) addRow({});
 
   // portal password state
   $('#ppstate').textContent = c.pp ? '(set)' : '(optional)';

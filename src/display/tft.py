@@ -89,8 +89,9 @@ class TFT(Display):
         self._cmd(0x29)
         time.sleep_ms(50)
 
-        # 2-color palette for blit_mono
+        # 2-color palette + one scratch buffer for all drawing, allocated once while the heap is clean
         self._pal = framebuf.FrameBuffer(bytearray(4), 2, 1, framebuf.RGB565)
+        self._mv = memoryview(bytearray(512))
 
     def _cmd(self, c: int, data: bytes = None) -> None:
         """Send command plus optional data."""
@@ -131,27 +132,39 @@ class TFT(Display):
         if w <= 0 or h <= 0:
             return
 
-        # stream one 512 byte color block over and over, no big buffer
+        # fill the scratch buffer with the color by doubling (no allocation)
+        mv = self._mv
+        mv[0], mv[1] = color >> 8, color & 0xFF
+        n = 2
+        while n < len(mv):
+            mv[n:2 * n] = mv[:n]
+            n *= 2
+
+        # stream it over and over
         self._window(x, y, w, h)
-        chunk = bytes([color >> 8, color & 0xFF]) * 256
         total = w * h * 2
         self.cs(0)
         self.dc(1)
         while total > 0:
-            n = min(total, len(chunk))
-            self.spi.write(chunk if n == len(chunk) else chunk[:n])
+            n = min(total, len(mv))
+            self.spi.write(mv[:n])
             total -= n
         self.cs(1)
 
     def blit_mono(self, buf: bytearray, w: int, h: int, x: int, y: int, fg: int, bg: int) -> None:
-        """Expand 1-bit to RGB565 via framebuf palette (C speed), then push."""
-        out = bytearray(w * h * 2)
+        """Expand 1-bit to RGB565 via framebuf palette (C speed), in bands through the scratch buffer."""
 
         # framebuf stores RGB565 little endian, panel wants big endian -> swap
         self._pal.pixel(0, 0, ((bg & 0xFF) << 8) | (bg >> 8))
         self._pal.pixel(1, 0, ((fg & 0xFF) << 8) | (fg >> 8))
 
-        # palette blit 1-bit -> 16-bit, then one SPI burst
-        framebuf.FrameBuffer(out, w, h, framebuf.RGB565).blit(
-            framebuf.FrameBuffer(buf, w, h, framebuf.MONO_HLSB), 0, 0, -1, self._pal)
-        self._blit(x, y, w, h, out)
+        # as many rows per band as fit the scratch buffer; a 60 px digit no longer needs 4 KB at once
+        rb = (w + 7) // 8
+        band = max(1, len(self._mv) // (w * 2))
+        src = memoryview(buf)
+        for y0 in range(0, h, band):
+            bh = min(band, h - y0)
+            out = self._mv[:w * bh * 2]
+            framebuf.FrameBuffer(out, w, bh, framebuf.RGB565).blit(
+                framebuf.FrameBuffer(src[y0 * rb:(y0 + bh) * rb], w, bh, framebuf.MONO_HLSB), 0, 0, -1, self._pal)
+            self._blit(x, y + y0, w, bh, out)

@@ -1,5 +1,10 @@
-"""Data screens: one security, portfolio return. Turns app state into ui.card calls."""
+"""Data screens: one asset, portfolio return. Turns app state into card() calls.
+
+Numbers come from the app's float arrays (price/base/qty/buy, NaN = not fetched yet),
+names from the asset record on flash (only the one on screen is read).
+"""
 from ui import fmt
+from ui.card import card
 from ui.fmt import signed, pct, pct_unit, money, money_str, decimals
 
 PERIOD = {"1d": "Today", "5d": "1 week", "ytd": "YTD", "max": "All time"}
@@ -8,37 +13,37 @@ PERIOD = {"1d": "Today", "5d": "1 week", "ytd": "YTD", "max": "All time"}
 def render(app) -> None:
     """Draw whatever the current mode wants."""
     fmt.STYLE = app.s["numfmt"]
-    items, mode = app.s["items"], app.s["mode"]
-    if not items:
-        app.ui.message("No securities", ["Press FLASH", "for settings"])
+    mode = app.s["mode"]
+    if not app.n:
+        app.ui.message("No assets", ["Press FLASH", "for settings"])
     elif mode == "port":
         portfolio(app)
     elif mode == "single":
-        item(app, min(app.s["single"], len(items) - 1), True)
+        item(app, min(app.s["single"], app.n - 1), True)
     else:
-        item(app, app.slide % len(items), False)
+        item(app, app.slide % app.n, False)
 
 
-def _labels(it: dict, q: dict) -> list:
+def _labels(rec: dict) -> list:
     """Name if it fits, else the id (ISIN/WKN/ticker)."""
-    name = it.get("name") or q.get("n") or it.get("yname") or ""
-    return [name, it["id"]] if name else [it["id"]]
+    name = rec.get("name") or rec.get("yname") or ""
+    return [name, rec.get("id", "?")] if name else [rec.get("id", "?")]
 
 
 def item(app, i: int, ret: bool) -> None:
-    """One security. ret=True: return since purchase is the headline (if a buy price is set)."""
-    u, it = app.ui, app.s["items"][i]
-    q = app.q.get(it["id"], {})
-    page = (i, len(app.s["items"])) if app.s["mode"] == "slide" else (0, 1)
+    """One asset. ret=True: return since purchase is the headline (if a buy price is set)."""
+    u, rec = app.ui, app.asset(i)
+    page = (i, app.n) if app.s["mode"] == "slide" else (0, 1)
+    p = app.price[i]
 
-    # no price yet: loading or the last error
-    if "p" not in q:
-        msg = q.get("err") or "Loading..."
-        u.card(_labels(it, q), "-", "", u.dim, [([msg], u.dim, 0)], page)
+    # no price yet (NaN != NaN): loading or the last error
+    if p != p:
+        msg = app.err.get(i) or "Loading..."
+        card(u, _labels(rec), "-", "", u.dim, [([msg], u.dim, 0)], page)
         return
 
     # change over the configured period, longest text first, ui picks what fits
-    p, b, code = q["p"], q["b"], q["cur"]
+    b, code = app.base[i], app.curs[app.cur[i]]
     dec = decimals(p)
     ch = p - b
     ch_pct = ch / b * 100 if b else 0
@@ -47,11 +52,11 @@ def item(app, i: int, ret: bool) -> None:
                pct(ch_pct) + " " + lbl, pct(ch_pct)], u.tone(ch), ch)
 
     # single mode with buy price: return is the big number, change + price below
-    buy = it.get("buy")
+    buy = app.buy[i]
     if ret and buy:
         r = (p - buy) / buy * 100
         subs = [change, ([money_str(p, code, dec)], u.fg, 0)]
-        u.card(_labels(it, q), signed(r), pct_unit(), u.tone(r), subs, page)
+        card(u, _labels(rec), signed(r), pct_unit(), u.tone(r), subs, page)
         return
 
     # default: price big, period change below, return since purchase if known
@@ -60,32 +65,32 @@ def item(app, i: int, ret: bool) -> None:
         r = (p - buy) / buy * 100
         subs.append((["Since purchase " + pct(r), pct(r)], u.tone(r), 0))
     value, unit = money(p, code, dec)
-    u.card(_labels(it, q), value, unit, u.tone(ch), subs, page)
+    card(u, _labels(rec), value, unit, u.tone(ch), subs, page)
 
 
 def portfolio(app) -> None:
-    """Total return over all items with qty + buy price."""
+    """Total return over all assets with qty + buy price. Arrays only, no flash reads."""
     u = app.ui
     value = cost = 0.0
     code = ""
     missing = 0
 
     # sum up holdings that have a price
-    for it in app.s["items"]:
-        if not (it.get("qty") and it.get("buy")):
+    for i in range(app.n):
+        qty, buy, p = app.qty[i], app.buy[i], app.price[i]
+        if not (qty and buy):
             continue
-        q = app.q.get(it["id"], {})
-        if "p" not in q:
+        if p != p:
             missing += 1
             continue
-        value += it["qty"] * q["p"]
-        cost += it["qty"] * it["buy"]
-        code = code or q["cur"]
+        value += qty * p
+        cost += qty * buy
+        code = code or app.curs[app.cur[i]]
 
     # nothing to show yet
     if not cost:
         msg = "Loading..." if missing else "Add qty + buy price"
-        u.card(["Portfolio"], "-", "", u.dim, [([msg], u.dim, 0)])
+        card(u, ["Portfolio"], "-", "", u.dim, [([msg], u.dim, 0)])
         return
 
     # return big, gain with arrow, then total value
@@ -95,4 +100,4 @@ def portfolio(app) -> None:
     subs = [([money_str(gain, code, 2, True)], u.tone(gain), gain), (["Value " + worth, worth], u.fg, 0)]
     if missing:
         subs.append((["%d price(s) missing" % missing], u.dim, 0))
-    u.card(["Portfolio"], signed(r), pct_unit(), u.tone(r), subs)
+    card(u, ["Portfolio"], signed(r), pct_unit(), u.tone(r), subs)
