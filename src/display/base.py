@@ -37,7 +37,14 @@ class Display:
         self.blit_mono(buf, w, 8, x, y, fg, bg)
 
     def draw(self, font, s: str, x: int, y: int, fg: int, bg: int = 0) -> int:
-        """Draw s with a display.font.Font, returns end x. Clips at right edge."""
+        """Draw s with a ui.font font, returns end x. Clips at right edge."""
+
+        # builtin 8x8 has no glyph table
+        if not hasattr(font, "glyph"):
+            self.text(s, x, y, fg, bg)
+            return x + font.width(s)
+
+        # proportional: one blit per glyph
         h = font.height
         for ch in s:
             i = font.index(ch)

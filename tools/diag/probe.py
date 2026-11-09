@@ -11,8 +11,9 @@ Tells you: the values for TFT_CONTROLLER / TFT_SPI_MODE / TFT_INVERT in config.p
 import time
 from machine import Pin
 import config as cfg
-from display import font, make_spi
+from display import make_spi
 from display.tft import TFT
+from ui import font
 
 # (controller, spi mode, invert)
 VARIANTS = (

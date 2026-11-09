@@ -1,6 +1,6 @@
-"""Entry point."""
+"""Entry point: build the display from config, hand over to the app."""
 import config
 from display import create_display
-from app import App
+from core.app import App
 
 App(create_display(config)).run()

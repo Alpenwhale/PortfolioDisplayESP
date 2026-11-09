@@ -1,12 +1,14 @@
 """Bitmap fonts from /fonts/*.bin, glyphs read from flash on demand (no RAM for data)."""
 import struct
 
+ROOT = "/fonts/"  # host simulator points this at src/fonts/
+
 
 class Font:
     """One .bin font. See tools/make_fonts.py for the layout."""
 
     def __init__(self, path: str) -> None:
-        """Read header + index, keep file open."""
+        """Read header + index, keep the file open."""
         f = open(path, "rb")
         self.height, n, cl = struct.unpack("<BHH", f.read(7)[2:])
         self.chars = f.read(cl).decode()
@@ -29,18 +31,35 @@ class Font:
         return w
 
     def glyph(self, i: int) -> bytearray:
-        """Raw MONO_HLSB rows of glyph i."""
+        """Raw MONO_HLSB rows of glyph i, read from flash."""
         off = self._offs[2 * i] | self._offs[2 * i + 1] << 8
         self._f.seek(self._data + off)
         return bytearray(self._f.read(((self.widths[i] + 7) // 8) * self.height))
 
 
+class Builtin:
+    """framebuf's 8x8 font with the Font interface. Crisp on tiny OLEDs."""
+
+    height = 8
+
+    def index(self, ch: str) -> int:
+        """ASCII only."""
+        return 0 if " " <= ch <= "~" else -1
+
+    def width(self, s: str) -> int:
+        """Fixed 8 px per char."""
+        return 8 * len(s)
+
+
+B8 = Builtin()
 _cache = {}
 
 
-def get(name: str) -> Font:
-    """Cached font by name (s, m, l, xl)."""
+def get(name: str):
+    """Cached font by name: s, m, l, xl or b8."""
+    if name == "b8":
+        return B8
     f = _cache.get(name)
     if f is None:
-        f = _cache[name] = Font("/fonts/%s.bin" % name)
+        f = _cache[name] = Font(ROOT + name + ".bin")
     return f

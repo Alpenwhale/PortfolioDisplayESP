@@ -1,4 +1,4 @@
-"""Hardware config. Pins are GPIO numbers, not D-labels."""
+"""Hardware + app constants. Pins are GPIO numbers, not D-labels."""
 
 DISPLAY: str = "tft"  # "tft" | "ssd1306"
 
@@ -22,14 +22,17 @@ TFT_CS = None           # None = tied low on module
 TFT_DC: int = 4         # D2
 TFT_RST: int = 5        # D1
 
-# --- app ---
-BUTTON_PIN: int = 0         # FLASH button, held at boot = setup mode
-AP_PREFIX: str = "PortfolioDisplay"
-WIFI_TIMEOUT_S: int = 20
-SETUP_IDLE_S: int = 600     # setup AP reboots after this idle time to retry wifi
-
-# --- SSD1306 OLED (I2C), later ---
+# --- SSD1306 OLED (I2C), 0.96" = 128x64 ---
 OLED_SCL: int = 5       # D1
 OLED_SDA: int = 4       # D2
 OLED_WIDTH: int = 128
 OLED_HEIGHT: int = 64
+
+# --- app ---
+BUTTON_PIN: int = 0         # FLASH button
+AP_PREFIX: str = "Portfolio"  # setup wifi = Portfolio-XXXX, short enough for 128 px
+WIFI_TIMEOUT_S: int = 20
+SETUP_IDLE_S: int = 600     # setup AP reboots after this idle time to retry wifi
+INFO_S: int = 10            # short FLASH press: show settings url this long
+RESET_HOLD_S: int = 10      # FLASH held this long = factory reset
+PAGE_S: int = 5             # small screens: setup/info pages rotate this fast

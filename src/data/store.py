@@ -14,19 +14,23 @@ import os
 SETTINGS = "/settings.json"
 SECRET = "/secret.bin"
 MAX_ITEMS = 8
+PERIODS = ("1d", "5d", "ytd", "max")
 DEFAULTS = {
     "ssid": "",
     "mode": "slide",   # slide | port | single
     "single": 0,       # item index for single mode
+    "period": "1d",    # change shown next to the price, see PERIODS
     "slide_s": 8,
     "fetch_s": 300,
-    "items": [],       # {id, name, sym, qty, buy}
+    "items": [],       # {id, name, ex, sym, qty, buy}
 }
 
 
 def load() -> dict:
     """Settings merged over defaults."""
     s = dict(DEFAULTS)
+
+    # missing / broken file -> defaults
     try:
         with open(SETTINGS) as f:
             s.update(json.load(f))
@@ -39,6 +43,8 @@ def _write(path: str, data, mode: str) -> None:
     """Write via tmp file so a power cut doesn't leave half a file."""
     with open(path + ".tmp", mode) as f:
         f.write(data)
+
+    # FAT can't rename over an existing file
     try:
         os.remove(path)
     except OSError:
@@ -61,6 +67,8 @@ def load_secret() -> dict:
     try:
         with open(SECRET, "rb") as f:
             raw = f.read()
+
+        # iv | ciphertext, pkcs7 padded json
         data = cryptolib.aes(_key(), 2, raw[:16]).decrypt(raw[16:])
         return json.loads(data[:-data[-1]])
     except Exception:
@@ -68,12 +76,25 @@ def load_secret() -> dict:
 
 
 def save_secret(d: dict) -> None:
-    """Encrypt + persist secrets (pkcs7 pad, random iv)."""
+    """Encrypt + persist secrets."""
     data = json.dumps(d).encode()
+
+    # pkcs7 pad to the aes block size
     pad = 16 - len(data) % 16
     data += bytes([pad]) * pad
+
+    # fresh iv every write
     iv = os.urandom(16)
     _write(SECRET, iv + cryptolib.aes(_key(), 2, iv).encrypt(data), "wb")
+
+
+def factory_reset() -> None:
+    """Drop settings + secrets. Next boot = fresh device with a new AP password."""
+    for p in (SETTINGS, SECRET):
+        try:
+            os.remove(p)
+        except OSError:
+            pass
 
 
 def pw_hash(pw: str, salt: bytes = b"") -> str:

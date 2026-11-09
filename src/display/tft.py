@@ -58,27 +58,38 @@ class TFT(Display):
         """Reset and init. width/height = native portrait size."""
         self.spi, self.dc, self.rst = spi, dc, rst
         self.cs = cs if cs is not None else (lambda v: None)
+
+        # logical size + ram offsets follow the rotation
         landscape = rotation % 2 == 1
         self.width, self.height = (height, width) if landscape else (width, height)
         self._xo, self._yo = (y_offset, x_offset) if landscape else (x_offset, y_offset)
 
+        # hard reset, then soft reset
         self.cs(1)
         self.rst(0)
         time.sleep_ms(50)
         self.rst(1)
         time.sleep_ms(120)
-        self._cmd(0x01)  # swreset
+        self._cmd(0x01)
         time.sleep_ms(150)
+
+        # controller profile: power, vcom, gamma
         for c, data in _INIT[controller]:
             self._cmd(c, data)
+
+        # pixel format, orientation, inversion
         self._cmd(0x3A, b"\x55")  # 16bpp
         self._cmd(0x36, bytes([_ROT[controller][rotation % 4] | (0x08 if bgr else 0)]))
         self._cmd(0x21 if invert else 0x20)
-        self._cmd(0x11)  # sleep out
+
+        # wake up + display on
+        self._cmd(0x11)
         time.sleep_ms(150)
-        self._cmd(0x13)  # normal mode
-        self._cmd(0x29)  # on
+        self._cmd(0x13)
+        self._cmd(0x29)
         time.sleep_ms(50)
+
+        # 2-color palette for blit_mono
         self._pal = framebuf.FrameBuffer(bytearray(4), 2, 1, framebuf.RGB565)
 
     def _cmd(self, c: int, data: bytes = None) -> None:
@@ -113,10 +124,14 @@ class TFT(Display):
 
     def fill_rect(self, x: int, y: int, w: int, h: int, color: int) -> None:
         """Fill a clipped rectangle."""
+
+        # clip to screen
         x, y = max(0, x), max(0, y)
         w, h = min(w, self.width - x), min(h, self.height - y)
         if w <= 0 or h <= 0:
             return
+
+        # stream one 512 byte color block over and over, no big buffer
         self._window(x, y, w, h)
         chunk = bytes([color >> 8, color & 0xFF]) * 256
         total = w * h * 2
@@ -131,9 +146,12 @@ class TFT(Display):
     def blit_mono(self, buf: bytearray, w: int, h: int, x: int, y: int, fg: int, bg: int) -> None:
         """Expand 1-bit to RGB565 via framebuf palette (C speed), then push."""
         out = bytearray(w * h * 2)
+
         # framebuf stores RGB565 little endian, panel wants big endian -> swap
         self._pal.pixel(0, 0, ((bg & 0xFF) << 8) | (bg >> 8))
         self._pal.pixel(1, 0, ((fg & 0xFF) << 8) | (fg >> 8))
+
+        # palette blit 1-bit -> 16-bit, then one SPI burst
         framebuf.FrameBuffer(out, w, h, framebuf.RGB565).blit(
             framebuf.FrameBuffer(buf, w, h, framebuf.MONO_HLSB), 0, 0, -1, self._pal)
         self._blit(x, y, w, h, out)
