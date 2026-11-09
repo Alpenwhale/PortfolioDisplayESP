@@ -5,8 +5,16 @@
 <title>Saved</title>
 <link rel=stylesheet href=/s.css>
 <h1>Saved</h1>
-<p>The display restarts now and joins your Wi-Fi. This setup Wi-Fi goes away, so your phone
-will disconnect from it.</p>
-<p>Connect your phone back to your home Wi-Fi. The display then shows a QR code for the settings
-page for a few seconds. Press FLASH briefly to show it again at any time.</p>
-<p><small>If the display shows the setup screen again, the Wi-Fi name or password was wrong.</small></p>
+<p>The display restarts now and applies your settings (about 15 seconds).</p>
+<p id=wait>This page reloads by itself when the display is back.</p>
+<p><small>Changed the Wi-Fi? Then this phone loses the connection: join your home Wi-Fi again,
+the display shows the address of this page for a few seconds (press FLASH briefly to show it
+again). If the display shows the setup screen again, the Wi-Fi name or password was wrong.</small></p>
+<script>
+// poll until the device answers again, then back to the form
+let n = 0;
+const t = setInterval(() => {
+  if (++n > 40) { clearInterval(t); document.getElementById('wait').textContent = 'No answer, reload manually.'; return; }
+  fetch('/s.css', {cache: 'no-store'}).then(r => { if (r.ok) { clearInterval(t); location.href = '/?ok'; } }).catch(() => {});
+}, 3000);
+</script>

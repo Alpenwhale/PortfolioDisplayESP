@@ -11,7 +11,6 @@ import time
 from array import array
 
 import config
-from ui.layout import UI
 
 
 NAN = float("nan")
@@ -47,7 +46,8 @@ class App:
 
     def __init__(self, d) -> None:
         """Load settings, nothing networky yet."""
-        self.ui = UI(d)
+        self.d = d
+        self._ui = None
 
         # settings + secrets, store module only while needed
         from data import store
@@ -73,9 +73,61 @@ class App:
         self.info_page = 0
         self.info_flip = 0
         self._reboot = 0
+        self.just_saved = False  # set by the portal, handled in serve()
         self._press = 0
         self._shown_s = -1
         self.btn = machine.Pin(config.BUTTON_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
+
+    # --- drawing: layout code only lives in RAM while something is drawn ---
+
+    @property
+    def ui(self):
+        """Layout helper, created on first use after each release_ui()."""
+        if self._ui is None:
+            from ui.layout import UI
+            self._ui = UI(self.d)
+        return self._ui
+
+    def release_ui(self) -> None:
+        """After a screen is drawn: drop layout + drawing modules, close font files."""
+        self._ui = None
+        from ui import font
+        font.release()
+        del font
+        drop("ui.layout", "core.screens", "core.setup", "ui.card", "ui.fmt", "ui.font")
+
+    def message(self, title: str, lines: list) -> None:
+        """Full-screen text, then free the layout again."""
+        self.ui.message(title, lines)
+        self.release_ui()
+
+    # --- setup mode loop (pages come from core.setup, loaded per flip) ---
+
+    def setup_loop(self, ssid: str, pw: str, reason: str) -> None:
+        """Serve the portal on the setup AP until saved; never returns."""
+        page, pages, flip, idle = 0, 1, 0, 0
+        while True:
+            now = time.ticks_ms()
+            if self.serve():
+                idle = 0
+
+            # rotate pages, but keep "Saved / Restarting" up once a reboot is pending
+            if not self._reboot and (not flip or time.ticks_diff(now, flip) >= 0):
+                from core import setup
+                pages = setup.setup_page(self.ui, page, ssid, pw, self.ip, reason)
+                del setup
+                self.release_ui()
+                page = (page + 1) % pages
+                flip = later(config.PAGE_S * 1000 if pages > 1 else 3600000)
+
+            # idle too long with a known wifi -> reboot, maybe the router is back
+            if not idle:
+                idle = later(config.SETUP_IDLE_S * 1000)
+            if self.s["ssid"] and due(idle):
+                self.reboot_soon(0)
+            self.button()
+            self.maybe_reboot()
+            time.sleep_ms(50)
 
     # --- assets ---
 
@@ -172,7 +224,12 @@ class App:
             print("portal:", repr(e))
         finally:
             cl.close()
-            drop("net.portal", "data.store", "data.assets")
+            drop("net.portal", "net.cfg", "data.store", "data.assets")
+
+        # a saved form: now that the portal is gone there's room for the message
+        if self.just_saved:
+            self.just_saved = False
+            self.saved()
         return True
 
     # --- FLASH button ---

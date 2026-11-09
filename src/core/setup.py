@@ -4,12 +4,9 @@ Both show QR codes so a phone can join/open without typing. Small screens get ro
 pages (QR wifi, QR url, plain text), big screens get everything at once.
 Imported only when needed, then unloaded.
 """
-import time
-
 import config
 from core.app import drop
 from net import wifi
-from ui import font
 
 
 def _qr(text: str) -> tuple:
@@ -96,8 +93,8 @@ def info_page(ui, page: int, ip: str) -> int:
     return 2
 
 
-def run(app, reason: str) -> None:
-    """Setup loop, never returns. Saving wifi in the portal reboots."""
+def start(app) -> tuple:
+    """Open the WPA2 setup AP + http server. Returns (ssid, pw); the loop is App.setup_loop."""
     app.ap_mode = True
 
     # AP password: random once per flash, then static, shown only on the display
@@ -105,27 +102,9 @@ def run(app, reason: str) -> None:
     pw = store.ap_password()
     del store
     drop("data.store")
+
+    # AP named after the chip, portal on 192.168.4.1
     ssid = wifi.ap_name(config.AP_PREFIX)
     app.ip = wifi.ap(ssid, pw)
     app.listen()
-
-    # page rotation + idle reboot (maybe the router is back)
-    page, pages = 0, 1
-    flip = idle = 0
-    while True:
-        now = time.ticks_ms()
-        if app.serve():
-            idle = 0
-        # rotate pages, but keep "Saved / Restarting" up once a reboot is pending
-        if not app._reboot and (not flip or time.ticks_diff(now, flip) >= 0):
-            pages = setup_page(app.ui, page, ssid, pw, app.ip, reason)
-            font.release()
-            page = (page + 1) % pages
-            flip = time.ticks_add(now, config.PAGE_S * 1000) if pages > 1 else time.ticks_add(now, 3600000)
-        if not idle:
-            idle = time.ticks_add(now, config.SETUP_IDLE_S * 1000)
-        if app.s["ssid"] and time.ticks_diff(now, idle) >= 0:
-            app.reboot_soon(0)
-        app.button()
-        app.maybe_reboot()
-        time.sleep_ms(50)
+    return ssid, pw

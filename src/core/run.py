@@ -5,7 +5,6 @@ import time
 import config
 from core.app import later, due, drop
 from net import wifi
-from ui import font
 
 
 def loop(app) -> None:
@@ -45,14 +44,13 @@ def loop(app) -> None:
             app.next_slide = later(app.s["slide_s"] * 1000)
             app.dirty = True
 
-        # redraw only on change, then free the drawing code + font files for the next TLS fetch
+        # redraw only on change, then free all drawing code for the next TLS fetch
         if app.dirty:
             app.dirty = False
             from core import screens
             screens.render(app)
             del screens
-            font.release()
-            drop("core.screens", "ui.card", "ui.fmt")
+            app.release_ui()
         time.sleep_ms(30)
 
 
@@ -61,8 +59,7 @@ def info(app) -> None:
     from core import setup as s
     pages = s.info_page(app.ui, app.info_page, app.ip)
     del s
-    font.release()
-    drop("core.setup")
+    app.release_ui()
     app.info_page = (app.info_page + 1) % pages
     app.info_flip = later(config.PAGE_S * 1000)
 
