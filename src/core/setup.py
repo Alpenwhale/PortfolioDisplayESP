@@ -43,19 +43,19 @@ def setup_page(ui, page: int, ssid: str, pw: str, ip: str, reason: str) -> int:
 
     # big: one static screen
     if not ui.small:
-        _qr_panel(ui, wifi_qr, [("Einrichtung", ui.fg), ("WLAN", ui.dim), (ssid, ui.fg),
-                                ("Passwort", ui.dim), (pw, ui.fg), ("http://" + ip, ui.fg),
+        _qr_panel(ui, wifi_qr, [("Setup", ui.fg), ("Wi-Fi", ui.dim), (ssid, ui.fg),
+                                ("Password", ui.dim), (pw, ui.fg), ("http://" + ip, ui.fg),
                                 (reason, ui.dim)])
         return 1
 
     # small: three fixed pages, nothing scrolls
     if page == 0:
-        _qr_panel(ui, wifi_qr, [("WLAN", ui.fg), ("scannen", ui.dim)])
+        _qr_panel(ui, wifi_qr, [("Scan to", ui.dim), ("join", ui.fg), ("Wi-Fi", ui.fg)])
     elif page == 1:
-        _qr_panel(ui, "http://" + ip, [("Seite", ui.fg), ("öffnen", ui.dim)])
+        _qr_panel(ui, "http://" + ip, [("Scan to", ui.dim), ("open", ui.fg), ("setup", ui.fg)])
     else:
         ui.d.fill(ui.bg)
-        ui.column([("WLAN:", ui.dim), (ssid, ui.fg), ("Passwort:", ui.dim), (pw, ui.fg), (ip, ui.fg)],
+        ui.column([("Wi-Fi:", ui.dim), (ssid, ui.fg), ("Password:", ui.dim), (pw, ui.fg), (ip, ui.fg)],
                   names=("b8",))
         ui.d.show()
     return 3
@@ -65,12 +65,12 @@ def info_page(ui, page: int, ip: str) -> int:
     """Settings address while running. Returns page count."""
     url = "http://" + ip
     if not ui.small:
-        _qr_panel(ui, url, [("Einstellungen", ui.fg), (url, ui.fg), ("im selben WLAN", ui.dim)])
+        _qr_panel(ui, url, [("Settings", ui.fg), (url, ui.fg), ("same Wi-Fi only", ui.dim)])
         return 1
     if page == 0:
-        _qr_panel(ui, url, [("Setup", ui.fg), ("scannen", ui.dim)])
+        _qr_panel(ui, url, [("Scan for", ui.dim), ("settings", ui.fg)])
     else:
-        ui.message("Einstellungen", [ip])
+        ui.message("Settings", [ip])
     return 2
 
 
@@ -78,14 +78,11 @@ def run(app, reason: str) -> None:
     """Setup loop, never returns. Saving wifi in the portal reboots."""
     app.ap_mode = True
 
-    # AP password: random once, kept encrypted, shown only on the display
-    pw = app.sec.get("ap")
-    if not pw:
-        from data import store
-        pw = app.sec["ap"] = store.random_pw()
-        store.save_secret(app.sec)
-        del store
-        sys.modules.pop("data.store", None)
+    # AP password: random once per flash, then static, shown only on the display
+    from data import store
+    pw = store.ap_password()
+    del store
+    sys.modules.pop("data.store", None)
     ssid = wifi.ap_name(config.AP_PREFIX)
     app.ip = wifi.ap(ssid, pw)
     app.listen()

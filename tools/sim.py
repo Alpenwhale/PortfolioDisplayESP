@@ -1,6 +1,6 @@
 """Render every screen on the PC with the real ui/core code -> PNGs in tools/sim_out/.
 
-Usage: uv run tools/sim.py
+Usage: uv run tools/sim.py [--docs]     (--docs also refreshes docs/img/ for SETUP.md)
 Sizes: 128x64 mono (0.96" OLED) and 320x240 color (2.8" TFT).
 Board-only modules (framebuf, machine, network) are stubbed; the builtin 8x8 font is
 approximated with Pillow's bitmap font, widths are exact (8 px/char).
@@ -96,9 +96,11 @@ class SimDisplay(Display):
                     self.px[X, Y] = f if on else b
 
     def save(self, name: str) -> None:
-        """PNG, upscaled so pixels stay visible."""
+        """sim_out/<WxH>/<name>.png, upscaled so pixels stay visible."""
+        d = OUT / ("%dx%d" % (self.width, self.height))
+        d.mkdir(parents=True, exist_ok=True)
         k = 4 if self.width <= 128 else 2
-        self.img.resize((self.width * k, self.height * k), Image.NEAREST).save(OUT / name)
+        self.img.resize((self.width * k, self.height * k), Image.NEAREST).save(d / (name + ".png"))
 
 
 # --- scenarios ---
@@ -115,6 +117,11 @@ QUOTES = {
     "DE0007164600": {"err": "HTTP 404"},
     "A1JX52": {"p": 9.1234, "b": 9.0, "cur": "EUR", "n": ""},
 }
+
+
+# screenshots used in docs/SETUP.md (copied by --docs)
+DOC_SHOTS = ("boot", "setup0", "setup1", "setup2", "info0", "info1", "reset",
+             "slide0", "slide1", "slide2", "portfolio", "single", "slide1_en")
 
 
 class FakeApp:
@@ -147,17 +154,17 @@ def check_qr() -> None:
 
 def main() -> None:
     """Render all screens at both sizes."""
-    OUT.mkdir(exist_ok=True)
+    import shutil
+    shutil.rmtree(OUT, ignore_errors=True)  # no stale shots from renamed screens
     from core import screens, setup
     from ui.layout import UI
 
     for w, h, mono in ((128, 64, True), (320, 240, False)):
-        tag = "%dx%d" % (w, h)
 
         def shot(name, fn):
             d = SimDisplay(w, h, mono)
             fn(UI(d))
-            d.save("%s_%s.png" % (tag, name))
+            d.save(name)
 
         shot("boot", lambda u: u.message("PortfolioDisplay", ["Starte...", "FLASH = Einrichtung"]))
         shot("reset", lambda u: u.message("Zurücksetzen", ["noch 7 s halten", "loslassen = Abbruch"]))
@@ -173,6 +180,15 @@ def main() -> None:
         shot("single", lambda u: screens.render(FakeApp(u, "single")))
     check_qr()
     print("pngs in", OUT)
+
+    # --docs: refresh the screenshots referenced by docs/SETUP.md
+    if "--docs" in sys.argv:
+        for tag in ("128x64", "320x240"):
+            dst = ROOT / "docs" / "img" / tag
+            dst.mkdir(parents=True, exist_ok=True)
+            for name in DOC_SHOTS:
+                shutil.copy2(OUT / tag / (name + ".png"), dst / (name + ".png"))
+        print("docs images in", ROOT / "docs" / "img")
 
 
 if __name__ == "__main__":

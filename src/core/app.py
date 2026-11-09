@@ -43,6 +43,7 @@ class App:
 
         # runtime state
         self.q = {}              # item id -> {p, b, cur, n} and/or {err}
+        self.fx = {}             # currency -> rate into the display currency
         self.ap_mode = False
         self.ip = ""
         self.srv = None
@@ -70,8 +71,8 @@ class App:
         self.dirty = True
 
     def refetch_all(self) -> None:
-        """Period changed: every base price is stale."""
-        self.q = {}
+        """Period or currency changed: every cached price is stale."""
+        self.q, self.fx = {}, {}
         self.applied()
 
     def reboot_soon(self, ms: int = 1500) -> None:
@@ -129,11 +130,11 @@ class App:
             left = config.RESET_HOLD_S - held
             if held >= 2 and left != self._shown_s:
                 self._shown_s = left
-                self.ui.message("Zurücksetzen", ["noch %d s halten" % left, "loslassen = Abbruch"])
+                self.ui.message("Factory reset", ["keep holding %d s" % left, "release = cancel"])
             if left <= 0:
                 from data import store
                 store.factory_reset()
-                self.ui.message("Zurückgesetzt", ["Neustart..."])
+                self.ui.message("Reset done", ["Rebooting..."])
                 time.sleep_ms(1500)
                 machine.reset()
             return
@@ -151,7 +152,7 @@ class App:
     def run(self) -> None:
         """Entry point, never returns."""
         u = self.ui
-        u.message("PortfolioDisplay", ["Starte...", "FLASH = Einrichtung"])
+        u.message("PortfolioDisplay", ["Starting...", "Hold FLASH = setup"])
 
         # FLASH held during the first 2 s -> setup mode (also how you get past a portal password)
         setup = False
@@ -160,16 +161,16 @@ class App:
                 setup = True
                 break
             time.sleep_ms(100)
-        reason = "per Taste" if setup else ""
+        reason = "FLASH pressed" if setup else ""
 
         # no wifi yet / wifi down -> setup mode
         if not setup and not self.s["ssid"]:
-            setup, reason = True, "kein WLAN"
+            setup, reason = True, "no Wi-Fi set"
         if not setup:
-            u.message("Verbinde", [self.s["ssid"]])
+            u.message("Connecting", [self.s["ssid"]])
             self.ip = wifi.sta(self.s["ssid"], self.sec.get("pw", ""), config.WIFI_TIMEOUT_S)
             if not self.ip:
-                setup, reason = True, "WLAN fehlt"
+                setup, reason = True, "Wi-Fi not found"
 
         # wait for the button release so it isn't read as a reset hold
         while not self.btn.value():
@@ -200,6 +201,7 @@ class App:
             elif _due(self.next_fetch):
                 self.queue = list(range(len(self.s["items"])))
                 self.next_fetch = _later(self.s["fetch_s"] * 1000)
+                self.fx = {}  # fresh exchange rates every cycle
 
             # info screen overrides everything while active
             if self.info_until and not _due(self.info_until):
@@ -252,11 +254,11 @@ class App:
                 store.save(self.s)
                 del store
 
-            # price + base for the configured period
+            # price + base for the configured period, then into the display currency
             q = quotes.quote(it["sym"], self.s["period"])
             if not q["n"]:
                 q["n"] = it.get("yname", "")
-            self.q[it["id"]] = q
+            self.q[it["id"]] = self._convert(quotes, q)
         except Exception as e:
             print("fetch", it["id"], repr(e))
             self.q.setdefault(it["id"], {})["err"] = str(e) or e.__class__.__name__
@@ -267,3 +269,26 @@ class App:
         m = self.s["mode"]
         if m == "port" or (m == "slide" and self.slide == i) or (m == "single" and self.s["single"] == i):
             self.dirty = True
+
+    def _convert(self, quotes, q: dict) -> dict:
+        """Scale p/b into the display currency. FX failure -> keep native, don't lose the quote."""
+
+        # london quotes in pence
+        if q["cur"] in ("GBp", "GBX"):
+            q["p"], q["b"], q["cur"] = q["p"] / 100, q["b"] / 100, "GBP"
+
+        # nothing to do
+        want = self.s["cur"]
+        if want == "native" or not q["cur"] or q["cur"] == want:
+            return q
+
+        # one rate per currency per fetch cycle
+        try:
+            rate = self.fx.get(q["cur"])
+            if rate is None:
+                rate = self.fx[q["cur"]] = quotes.fx(q["cur"], want)
+        except Exception as e:
+            print("fx", q["cur"], want, repr(e))
+            return q
+        q["p"], q["b"], q["cur"] = q["p"] * rate, q["b"] * rate, want
+        return q

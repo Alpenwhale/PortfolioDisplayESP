@@ -36,3 +36,4 @@ SETUP_IDLE_S: int = 600     # setup AP reboots after this idle time to retry wif
 INFO_S: int = 10            # short FLASH press: show settings url this long
 RESET_HOLD_S: int = 10      # FLASH held this long = factory reset
 PAGE_S: int = 5             # small screens: setup/info pages rotate this fast
+

@@ -2,7 +2,7 @@
 
 Secrets are write-only: the page never contains a stored password.
 Basic auth (if a portal password is set) applies on the home network, not in setup AP mode;
-the AP itself is WPA2 with a random password shown only on the display.
+the AP itself is WPA2 with a static per-device password shown only on the display.
 """
 import binascii
 import network
@@ -10,13 +10,19 @@ import network
 import config
 from data import store
 
-MODES = (("slide", "Slideshow"), ("port", "Portfolio-Rendite"), ("single", "Einzelwert"))
-PERIODS = (("1d", "Tag"), ("5d", "Woche"), ("ytd", "Jahr (YTD)"), ("max", "All time"))
+MODES = (("slide", "Slideshow"), ("port", "Portfolio return"), ("single", "Single security"))
+PERIODS = (("1d", "Day"), ("5d", "Week"), ("ytd", "Year to date"), ("max", "All time"))
+NUMFMTS = (("de", "German: 1.234,56 € / +0,73 %"), ("en", "English: €1,234.56 / +0.73%"))
+CURRENCIES = (("EUR", "Euro (EUR)"), ("USD", "US Dollar (USD)"), ("GBP", "British Pound (GBP)"),
+              ("CHF", "Swiss Franc (CHF)"), ("JPY", "Japanese Yen (JPY)"),
+              ("native", "No conversion (exchange currency)"))
 
-# value = yahoo suffix (see net.quotes.resolve), "auto" prefers xetra/frankfurt, "US" = no suffix
-EXCHANGES = (("auto", "Automatisch"), (".DE", "Xetra"), (".F", "Frankfurt"), (".SG", "Stuttgart"),
-             (".MU", "München"), ("US", "NYSE / Nasdaq"), (".L", "London"), (".AS", "Amsterdam"),
-             (".PA", "Paris"), (".SW", "Schweiz"))
+# value = yahoo suffix (see net.quotes.resolve). "auto" prefers Xetra, "US" = no suffix.
+EXCHANGES = (("auto", "Automatic"), (".DE", "Xetra (DE)"), ("US", "NYSE / Nasdaq (US)"),
+             (".L", "London (UK)"), (".PA", "Euronext Paris (FR)"), (".AS", "Euronext Amsterdam (NL)"),
+             (".MI", "Borsa Italiana (IT)"), (".MC", "Madrid (ES)"), (".SW", "SIX Swiss (CH)"),
+             (".TO", "Toronto (CA)"), (".T", "Tokyo (JP)"), (".HK", "Hong Kong (HK)"),
+             (".AX", "Sydney (AU)"))
 CSS = "/www/s.css"  # streamed from flash, not held in RAM
 
 
@@ -59,11 +65,14 @@ def parse_form(body: str) -> dict:
 
 
 def to_float(s):
-    """'1.234,5' / '1234.5' -> float, '' -> None."""
+    """'1,234.5' / '1234,5' -> float, '' -> None. Last separator is the decimal point."""
     if not s:
         return None
-    if "," in s:
-        s = s.replace(".", "").replace(",", ".")
+    s = s.replace(" ", "")
+    if "," in s and "." in s:
+        s = s.replace(",", "") if s.rfind(".") > s.rfind(",") else s.replace(".", "").replace(",", ".")
+    else:
+        s = s.replace(",", ".")
     try:
         return float(s)
     except ValueError:
@@ -72,7 +81,7 @@ def to_float(s):
 
 def fmt(v) -> str:
     """Float for an input value, '' for None."""
-    return "" if v is None else ("%g" % v).replace(".", ",")
+    return "" if v is None else "%g" % v
 
 
 def options(cl, pairs, current) -> None:
@@ -145,59 +154,64 @@ def page(cl, app, note: str = "") -> None:
         nets = []
 
     # head
-    send(cl, "200 OK", '<!doctype html><meta name=viewport content="width=device-width,initial-scale=1">'
-                       "<title>PortfolioDisplay</title><link rel=stylesheet href=/s.css><h1>PortfolioDisplay</h1>")
+    send(cl, "200 OK", '<!doctype html><html lang=en><meta name=viewport content="width=device-width,'
+                       'initial-scale=1"><title>PortfolioDisplay</title><link rel=stylesheet href=/s.css>'
+                       "<h1>PortfolioDisplay</h1>")
     if note:
         cl.write("<p>%s</p>" % note)
 
     # wifi, password never echoed
-    cl.write('<form method=post action=/save><h2>WLAN</h2><label>Netzwerk</label>'
+    cl.write('<form method=post action=/save><h2>Wi-Fi</h2><label>Network</label>'
              '<input name=ssid list=nets value="%s" autocomplete=off><datalist id=nets>' % esc(s["ssid"]))
     for n in nets:
         cl.write('<option value="%s">' % esc(n))
-    cl.write('</datalist><label>Passwort</label><input name=pw type=password autocomplete=new-password '
-             'placeholder="%s">' % ("gespeichert - leer lassen = unverändert" if sec.get("pw") else ""))
+    cl.write('</datalist><label>Password</label><input name=pw type=password autocomplete=new-password '
+             'placeholder="%s">' % ("saved - leave empty to keep" if sec.get("pw") else ""))
 
     # display mode, period, timings
-    cl.write("<h2>Anzeige</h2><label>Modus</label><select name=mode>")
+    cl.write("<h2>Display</h2><label>Mode</label><select name=mode>")
     options(cl, MODES, s["mode"])
-    cl.write("</select><label>Einzelwert</label><select name=single>")
+    cl.write("</select><label>Single security</label><select name=single>")
     options(cl, [(str(i), esc(it.get("name") or it["id"])) for i, it in enumerate(s["items"])], str(s["single"]))
-    cl.write("</select><label>Veränderung über</label><select name=period>")
+    cl.write("</select><label>Show change over</label><select name=period>")
     options(cl, PERIODS, s["period"])
-    cl.write('</select><div class=g><div><label>Slide-Dauer (s)</label><input name=slide_s type=number '
-             'min=3 value=%d></div><div><label>Abruf alle (s)</label><input name=fetch_s type=number '
+    cl.write("</select><label>Number format</label><select name=numfmt>")
+    options(cl, NUMFMTS, s["numfmt"])
+    cl.write("</select><label>Currency (prices are converted at today's rate)</label><select name=cur>")
+    options(cl, CURRENCIES, s["cur"])
+    cl.write('</select><div class=g><div><label>Slide time (s)</label><input name=slide_s type=number '
+             'min=3 value=%d></div><div><label>Refresh every (s)</label><input name=fetch_s type=number '
              'min=60 value=%d></div></div>' % (s["slide_s"], s["fetch_s"]))
 
     # securities, one empty row for adding
-    cl.write("<h2>Wertpapiere</h2><small>ISIN, WKN oder Ticker (z.B. SAP). Stück + Kaufkurs optional, "
-             "nötig für Rendite.</small>")
+    cl.write("<h2>Securities</h2><small>ISIN, WKN or ticker (e.g. AAPL). Quantity + buy price are "
+             "optional, needed for returns. Enter the buy price in the display currency above.</small>")
     rows = s["items"] + ([{}] if len(s["items"]) < store.MAX_ITEMS else [])
     for i, it in enumerate(rows):
         sym = it.get("sym", "")
-        cl.write('<div class=row><label>Kennung%s</label><input name=id%d value="%s">'
-                 '<label>Börse</label><select name=ex%d>'
+        cl.write('<div class=row><label>Identifier%s</label><input name=id%d value="%s">'
+                 '<label>Exchange</label><select name=ex%d>'
                  % (" &rarr; " + esc(sym) if sym and sym != it.get("id") else "", i, esc(it.get("id", "")), i))
         options(cl, EXCHANGES, it.get("ex", "auto"))
-        cl.write('</select><label>Beschreibung</label><input name=name%d value="%s" placeholder="automatisch">'
-                 '<div class=g><div><label>Stück</label><input name=qty%d inputmode=decimal value="%s"></div>'
-                 '<div><label>Kaufkurs</label><input name=buy%d inputmode=decimal value="%s"></div></div>'
+        cl.write('</select><label>Description</label><input name=name%d value="%s" placeholder="automatic">'
+                 '<div class=g><div><label>Quantity</label><input name=qty%d inputmode=decimal value="%s"></div>'
+                 '<div><label>Buy price</label><input name=buy%d inputmode=decimal value="%s"></div></div>'
                  % (i, esc(it.get("name", "")), i, fmt(it.get("qty")), i, fmt(it.get("buy"))))
         if it:
-            cl.write('<label><input class=cb type=checkbox name=del%d> entfernen</label>' % i)
+            cl.write('<label><input class=cb type=checkbox name=del%d> remove</label>' % i)
         cl.write("</div>")
 
-    # security: portal password + fresh setup-wifi password
-    cl.write('<h2>Sicherheit</h2><label>Passwort für diese Seite im Heimnetz %s</label>'
+    # security: portal password + setup wifi password
+    cl.write('<h2>Security</h2><label>Password for this page on your network %s</label>'
              '<input name=pp type=password autocomplete=new-password placeholder="%s">'
-             % ("(gesetzt)" if sec.get("pp") else "(optional)",
-                "leer lassen = unverändert" if sec.get("pp") else ""))
+             % ("(set)" if sec.get("pp") else "(optional)", "leave empty to keep" if sec.get("pp") else ""))
     if sec.get("pp"):
-        cl.write('<label><input class=cb type=checkbox name=ppdel> Schutz entfernen</label><br>')
-    cl.write('<label><input class=cb type=checkbox name=apnew> Einrichtungs-WLAN-Passwort neu erzeugen</label>'
-             "<p><small>Passwort vergessen? Beim Start FLASH halten = Einrichtung ohne Login. "
-             "FLASH %d s halten = alles zurücksetzen.</small></p>"
-             "<button>Speichern</button></form>" % config.RESET_HOLD_S)
+        cl.write('<label><input class=cb type=checkbox name=ppdel> remove password</label><br>')
+    cl.write('<label><input class=cb type=checkbox name=apnew> new setup Wi-Fi password '
+             "(normally it never changes)</label>"
+             "<p><small>Forgot the password? Press FLASH while the display shows 'Starting...' "
+             "= setup mode without login. Hold FLASH for %d s = factory reset.</small></p>"
+             "<button>Save</button></form>" % config.RESET_HOLD_S)
 
 
 # --- save ---
@@ -219,19 +233,23 @@ def apply(app, f: dict) -> bool:
     elif f.get("ppdel"):
         sec.pop("pp", None)
     if f.get("apnew"):
-        sec.pop("ap", None)  # setup mode makes a new one
+        store.new_ap_password()
 
     # display settings, clamped
     if f.get("mode") in [k for k, _ in MODES]:
         s["mode"] = f["mode"]
-    old_period = s["period"]
+    old = (s["period"], s["cur"])
     if f.get("period") in [k for k, _ in PERIODS]:
         s["period"] = f["period"]
+    if f.get("numfmt") in [k for k, _ in NUMFMTS]:
+        s["numfmt"] = f["numfmt"]
+    if f.get("cur") in [k for k, _ in CURRENCIES]:
+        s["cur"] = f["cur"]
     s["slide_s"] = max(3, min(3600, int(to_float(f.get("slide_s")) or 8)))
     s["fetch_s"] = max(60, min(86400, int(to_float(f.get("fetch_s")) or 300)))
 
     # securities: keep resolved symbol only if id + exchange unchanged
-    old = {it["id"]: it for it in s["items"]}
+    prev_items = {it["id"]: it for it in s["items"]}
     items = []
     for i in range(store.MAX_ITEMS + 1):
         ident = f.get("id%d" % i, "").upper()
@@ -240,7 +258,7 @@ def apply(app, f: dict) -> bool:
         ex = f.get("ex%d" % i, "auto")
         it = {"id": ident, "ex": ex, "name": f.get("name%d" % i, ""),
               "qty": to_float(f.get("qty%d" % i)), "buy": to_float(f.get("buy%d" % i))}
-        prev = old.get(ident)
+        prev = prev_items.get(ident)
         if prev and prev.get("sym") and prev.get("ex", "auto") == ex:
             it["sym"], it["yname"] = prev["sym"], prev.get("yname", "")
         else:
@@ -249,11 +267,13 @@ def apply(app, f: dict) -> bool:
     s["items"] = items
     s["single"] = max(0, min(len(items) - 1, int(to_float(f.get("single")) or 0)))
 
-    # persist, refetch if the period moved
+    # persist, refetch if period or currency moved
     store.save(s)
     store.save_secret(sec)
-    if s["period"] != old_period:
+    if (s["period"], s["cur"]) != old:
         app.refetch_all()
+    else:
+        app.dirty = True  # number format is render-only
     return reboot
 
 
@@ -273,18 +293,17 @@ def handle(cl, app) -> None:
                 cl.write(b)
         return
     if not authed(app, hdr):
-        send(cl, "401 Unauthorized", "Login nötig", 'WWW-Authenticate: Basic realm="PortfolioDisplay"\r\n')
+        send(cl, "401 Unauthorized", "Login required", 'WWW-Authenticate: Basic realm="PortfolioDisplay"\r\n')
         return
 
     # save: reboot page or back to the form
     if method == "POST" and path == "/save":
         if apply(app, parse_form(body)):
             send(cl, "200 OK", '<meta name=viewport content="width=device-width"><link rel=stylesheet '
-                               "href=/s.css><h1>Gespeichert</h1><p>Gerät startet neu und verbindet "
-                               "sich mit dem WLAN.</p>")
+                               "href=/s.css><h1>Saved</h1><p>The device restarts and joins your Wi-Fi.</p>")
             app.reboot_soon()
         else:
             app.applied()
             send(cl, "303 See Other", "", "Location: /?ok\r\n")
         return
-    page(cl, app, "Gespeichert." if path.endswith("?ok") else "")
+    page(cl, app, "Saved." if path.endswith("?ok") else "")

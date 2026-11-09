@@ -177,6 +177,11 @@ def _chart(r, want_open: bool) -> tuple:
     return meta, None
 
 
+def fx(src: str, dst: str) -> float:
+    """Price of 1 src in dst, via yahoo's SRCDST=X pairs."""
+    return quote(src + dst + "=X")["p"]
+
+
 def quote(sym: str, period: str = "1d") -> dict:
     """{p: price, b: base price for the period, cur, n: name}."""
     rng, iv = RANGES.get(period, RANGES["1d"])

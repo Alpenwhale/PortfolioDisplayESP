@@ -115,11 +115,15 @@ class UI:
         dots = 10 if page[1] > 1 and d.height >= 100 and page[1] * 10 < d.width else 0
         room = d.width - 2 * self.m
 
+        # unit with a leading space = gap before it ("12,50 €" vs "+1.2%")
+        spaced = unit[:1] == " "
+        unit = unit.strip()
+
         # biggest value font that fits the width and leaves room for label + one sub line
         for name in BIG:
             vf = font.get(name)
             uf = vf if all(vf.index(c) >= 0 for c in unit) else f
-            sep = vf.width(" ") if unit else 0
+            sep = vf.width(" ") if spaced else 0
             vw = vf.width(value) + sep + uf.width(unit)
             if vw <= room and f.height * 2 + vf.height + 2 * gap + dots <= d.height:
                 break

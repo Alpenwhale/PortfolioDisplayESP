@@ -39,7 +39,8 @@ def cleanup_cmd(files: list[str]) -> str:
     """Board-side snippet: delete code files that aren't part of this build.
 
     Catches moved modules and stale .py twins (a .py would shadow the new .mpy).
-    Data files (settings.json, secret.bin) and boot.py are never touched.
+    Data files (settings.json, secret.bin, ap.key), boot.py and /lib (mip packages
+    like ssd1306) are never touched.
     """
     keep = set(files) | {"/boot.py"}
     return ("import os\n"
@@ -48,7 +49,7 @@ def cleanup_cmd(files: list[str]) -> str:
             " for e in os.ilistdir(d):\n"
             "  p = (d if d != '/' else '') + '/' + e[0]\n"
             "  if e[1] == 0x4000: walk(p)\n"
-            "  elif p.endswith(('.py', '.mpy')) and p not in keep:\n"
+            "  elif p.endswith(('.py', '.mpy')) and p not in keep and not p.startswith('/lib/'):\n"
             "   os.remove(p); print('removed', p)\n"
             "walk('/')" % sorted(keep))
 

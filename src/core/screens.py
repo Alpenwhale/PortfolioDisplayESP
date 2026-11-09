@@ -1,14 +1,16 @@
 """Data screens: one security, portfolio return. Turns app state into ui.card calls."""
-from ui.fmt import num, signed, pct, cur, decimals
+from ui import fmt
+from ui.fmt import signed, pct, pct_unit, money, money_str, decimals
 
-PERIOD = {"1d": "Heute", "5d": "1 Woche", "ytd": "YTD", "max": "Gesamt"}
+PERIOD = {"1d": "Today", "5d": "1 week", "ytd": "YTD", "max": "All time"}
 
 
 def render(app) -> None:
     """Draw whatever the current mode wants."""
+    fmt.STYLE = app.s["numfmt"]
     items, mode = app.s["items"], app.s["mode"]
     if not items:
-        app.ui.message("Keine Werte", ["FLASH kurz = Adresse"])
+        app.ui.message("No securities", ["Press FLASH", "for settings"])
     elif mode == "port":
         portfolio(app)
     elif mode == "single":
@@ -24,47 +26,48 @@ def _labels(it: dict, q: dict) -> list:
 
 
 def item(app, i: int, ret: bool) -> None:
-    """One security. ret=True: return since buy is the headline (if a buy price is set)."""
+    """One security. ret=True: return since purchase is the headline (if a buy price is set)."""
     u, it = app.ui, app.s["items"][i]
     q = app.q.get(it["id"], {})
     page = (i, len(app.s["items"])) if app.s["mode"] == "slide" else (0, 1)
 
     # no price yet: loading or the last error
     if "p" not in q:
-        msg = q.get("err") or "Lade Kurs..."
+        msg = q.get("err") or "Loading..."
         u.card(_labels(it, q), "-", "", u.dim, [([msg], u.dim, 0)], page)
         return
 
     # change over the configured period, longest text first, ui picks what fits
-    p, b, unit = q["p"], q["b"], cur(q["cur"])
+    p, b, code = q["p"], q["b"], q["cur"]
     dec = decimals(p)
     ch = p - b
     ch_pct = ch / b * 100 if b else 0
     lbl = PERIOD.get(app.s["period"], "")
-    change = ([pct(ch_pct) + " (" + signed(ch, dec) + " " + unit + ") " + lbl,
+    change = ([pct(ch_pct) + " (" + money_str(ch, code, dec, True) + ") " + lbl,
                pct(ch_pct) + " " + lbl, pct(ch_pct)], u.tone(ch), ch)
 
-    # single mode with buy price: return is the big number, price + change below
+    # single mode with buy price: return is the big number, change + price below
     buy = it.get("buy")
     if ret and buy:
         r = (p - buy) / buy * 100
-        subs = [change, ([num(p, dec) + " " + unit], u.fg, 0)]
-        u.card(_labels(it, q), signed(r), "%", u.tone(r), subs, page)
+        subs = [change, ([money_str(p, code, dec)], u.fg, 0)]
+        u.card(_labels(it, q), signed(r), pct_unit(), u.tone(r), subs, page)
         return
 
-    # default: price big, period change below, return since buy if known
+    # default: price big, period change below, return since purchase if known
     subs = [change]
     if buy:
         r = (p - buy) / buy * 100
-        subs.append((["Seit Kauf " + pct(r), pct(r)], u.tone(r), 0))
-    u.card(_labels(it, q), num(p, dec), unit, u.tone(ch), subs, page)
+        subs.append((["Since purchase " + pct(r), pct(r)], u.tone(r), 0))
+    value, unit = money(p, code, dec)
+    u.card(_labels(it, q), value, unit, u.tone(ch), subs, page)
 
 
 def portfolio(app) -> None:
     """Total return over all items with qty + buy price."""
     u = app.ui
     value = cost = 0.0
-    unit = ""
+    code = ""
     missing = 0
 
     # sum up holdings that have a price
@@ -77,19 +80,19 @@ def portfolio(app) -> None:
             continue
         value += it["qty"] * q["p"]
         cost += it["qty"] * it["buy"]
-        unit = unit or cur(q["cur"])
+        code = code or q["cur"]
 
     # nothing to show yet
     if not cost:
-        msg = "Lade Kurse..." if missing else "Stück + Kaufkurs fehlen"
+        msg = "Loading..." if missing else "Add qty + buy price"
         u.card(["Portfolio"], "-", "", u.dim, [([msg], u.dim, 0)])
         return
 
     # return big, gain with arrow, then total value
     gain = value - cost
     r = gain / cost * 100
-    subs = [([signed(gain) + " " + unit], u.tone(gain), gain), (["Wert " + num(value) + " " + unit,
-                                                                num(value) + " " + unit], u.fg, 0)]
+    worth = money_str(value, code)
+    subs = [([money_str(gain, code, 2, True)], u.tone(gain), gain), (["Value " + worth, worth], u.fg, 0)]
     if missing:
-        subs.append((["%d Kurs(e) fehlen" % missing], u.dim, 0))
-    u.card(["Portfolio"], signed(r), "%", u.tone(r), subs)
+        subs.append((["%d price(s) missing" % missing], u.dim, 0))
+    u.card(["Portfolio"], signed(r), pct_unit(), u.tone(r), subs)
