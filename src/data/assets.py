@@ -30,6 +30,14 @@ def each():
         yield json.loads(ln)
 
 
+def count() -> int:
+    """Number of assets, streamed."""
+    n = 0
+    for _ in lines():
+        n += 1
+    return n
+
+
 def read(i: int) -> dict:
     """Record i, {} if out of range."""
     for n, ln in enumerate(lines()):

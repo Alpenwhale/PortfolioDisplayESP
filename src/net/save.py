@@ -131,6 +131,10 @@ def save(app, read) -> None:
         raise
     w.commit()
     del row
+
+    # new list = indexes moved, old prices would land on the wrong assets
+    from data import prices
+    prices.clear()
     gc.collect()
 
     # wifi, empty password field = keep the stored one

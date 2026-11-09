@@ -126,6 +126,7 @@ def factory_reset() -> None:
     _rm(SETTINGS)
     _rm(SECRET)
     _rm("/assets.jsonl")
+    _rm("/prices.bin")
 
 
 def pw_hash(pw: str, salt: bytes = b"") -> str:

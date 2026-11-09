@@ -37,4 +37,5 @@ INFO_S: int = 10            # short FLASH press: show settings url this long
 RESET_HOLD_S: int = 10      # FLASH held this long = factory reset
 PAGE_S: int = 5             # small screens: setup/info pages rotate this fast
 TLS_MIN_FREE: int = 22000   # Yahoo TLS: 18 KB was ok for query1, query2 crashed above 18.5; 22 KB always ok
+FETCH_BATCH: int = 10       # assets per refresh (screen is frozen meanwhile, ~1-3 s each)
 

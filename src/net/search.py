@@ -1,5 +1,8 @@
 """ISIN/WKN -> Yahoo symbol. Needed once per asset, so it lives apart from net.quotes (RAM).
 
+ISIN: Yahoo search. WKN: Yahoo doesn't know them, so German ones are turned into their ISIN
+(DE000 + WKN + check digit); foreign funds (e.g. IE...) need the ISIN. OpenFIGI would know
+WKNs, but its TLS (ECDHE only) fails on the ESP8266 (-40), and it doesn't allow browser CORS.
 Self-contained on purpose: during its TLS handshake net.quotes must not be loaded too.
 """
 import requests
@@ -39,31 +42,54 @@ def is_code(ident: str) -> bool:
     return len(ident) == 6 and "." not in ident and any(c.isdigit() for c in ident)
 
 
-def _hits(r) -> list:
-    """[(symbol, shortname)] from a search response, streamed."""
-    out, name, buf = [], b"", b""
+def _pairs(r):
+    """Yield (key, value) bytes of every "key":"value" string pair in a streamed json body."""
+    buf = b""
     for c in _chunks(r):
         buf += c
 
-        # walk "key":"value" pairs, keep only what we need
+        # complete pairs right away
         while True:
             i = buf.find(b'":"')
             j = buf.find(b'"', i + 3) if i >= 0 else -1
             if j < 0:
                 break
             k = buf.rfind(b'"', 0, i)
-            key, val = buf[k + 1:i], buf[i + 3:j]
-            if key == b"shortname":
-                name = val
-            elif key == b"symbol":
-                out.append((val.decode(), name.decode()))
-                name = b""
+            yield buf[k + 1:i], buf[i + 3:j]
             buf = buf[j + 1:]
 
         # unfinished pair stays, junk gets dropped
         if len(buf) > 512:
             buf = buf[-128:]
+
+
+def _yahoo_hits(ident: str) -> list:
+    """[(symbol, name)] from Yahoo's search. Works for ISINs and tickers, not for WKNs."""
+    out, name = [], b""
+    r = _open(_SEARCH % _q(ident))
+    try:
+        for key, val in _pairs(r):
+            if key == b"shortname":
+                name = val
+            elif key == b"symbol":
+                out.append((val.decode(), name.decode()))
+                name = b""
+    finally:
+        r.close()
     return out
+
+
+def wkn_to_isin(wkn: str) -> str:
+    """German securities: ISIN = DE000 + WKN + check digit (Luhn over the letters-as-numbers)."""
+    base = "DE000" + wkn
+    digits = "".join(str(int(c, 36)) for c in base)
+
+    # luhn: double every second digit from the right
+    total = 0
+    for k, ch in enumerate(reversed(digits)):
+        n = int(ch) * (2 if k % 2 == 0 else 1)
+        total += n // 10 + n % 10
+    return base + str((10 - total % 10) % 10)
 
 
 def resolve(ident: str, ex: str = "auto") -> tuple:
@@ -75,12 +101,13 @@ def resolve(ident: str, ex: str = "auto") -> tuple:
             return ident, ""
         return ident + ex, ""
 
-    # codes: yahoo search, then pick the listing on the wanted exchange
-    r = _open(_SEARCH % _q(ident))
-    try:
-        hits = _hits(r)
-    finally:
-        r.close()
+    # yahoo doesn't know WKNs: try the German ISIN built from it (works for DE securities only)
+    if len(ident) == 12:
+        hits = _yahoo_hits(ident)
+    else:
+        hits = _yahoo_hits(wkn_to_isin(ident))
+        if not hits:
+            raise OSError("WKN: use the ISIN")
     if not hits:
         raise OSError("not found")
 

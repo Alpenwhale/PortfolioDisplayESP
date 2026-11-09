@@ -1,6 +1,9 @@
-"""Everything that runs once at power-up. main.py unloads this module before the long-running loop.
+"""Everything that runs once per boot. main.py unloads this module before the long-running loop.
 
-Display + app state, a pending portal save, then the decision: setup mode or normal mode.
+Warm boot (after a refresh soft reset): re-attach the display without init (image stays),
+load app state, straight into normal mode.
+Cold boot: init display, apply a pending portal save, setup decision, join wifi, then a
+first refresh soft reset to fetch prices with an empty heap.
 """
 import os
 import sys
@@ -9,19 +12,27 @@ import time
 import config
 
 
-def start():
+def start(state):
     """(app, reason). reason '' = normal mode, else why we go into setup mode."""
     from core.app import App, drop
+    warm = state is not None
 
-    # display driver, then forget the factory
+    # display driver: warm = attach only, the panel keeps its image
     from display import create_display
-    d = create_display(config)
+    d = create_display(config, init=not warm)
     del create_display
     sys.modules.pop("display", None)
-
-    # shared state
     app = App(d)
     del d
+
+    # warm: carry the slideshow position over, done
+    if warm:
+        import network
+        app.ip = network.WLAN(network.STA_IF).ifconfig()[0]
+        app.slide = state.get("s", 0)
+        app.offset = state.get("o", 0)
+        app.show_info = state.get("i", 0)
+        return app, ""
 
     # portal form saved before the last reboot? apply it now, the heap is still nearly empty
     try:
@@ -39,8 +50,7 @@ def start():
             del save
         except Exception as e:
             print("apply failed:", repr(e))
-        drop("net.save", "data.store", "data.assets")
-        app.load_assets()
+        drop("net.save", "data.store", "data.assets", "data.prices")
 
     # FLASH pressed during the first 2 s -> setup mode (also how you get past a portal password)
     app.message("PortfolioDisplay", ["Starting..."])
@@ -66,4 +76,9 @@ def start():
     # wait for the button release so it isn't read as a reset hold
     while not app.btn.value():
         time.sleep_ms(50)
+
+    # connected: first prices via a refresh soft reset (this message stays up meanwhile)
+    if not reason:
+        app.message("Loading prices", [app.ip])
+        app.refresh(info=1)
     return app, reason

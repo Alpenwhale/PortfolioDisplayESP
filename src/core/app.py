@@ -56,18 +56,18 @@ class App:
         del store
         drop("data.store")
 
-        # assets: numbers only, records stay on flash
+        # assets: numbers only, records stay on flash; prices from the last fetch phase
         self.load_assets()
 
         # runtime state
-        self.fx = {}             # currency -> rate into the display currency
         self.ap_mode = False
         self.ip = ""
         self.srv = None
         self.dirty = True
         self.slide = 0
+        self.offset = 0          # next asset batch for core.fetch
+        self.show_info = 0       # show the settings url right after this boot
         self.next_slide = 0
-        self.queue = []
         self.next_fetch = 0
         self.info_until = 0      # info screen (settings url) active until
         self.info_page = 0
@@ -82,23 +82,11 @@ class App:
 
     @property
     def ui(self):
-        """Layout helper, created on first use after each release_ui(). Re-attaches a parked display."""
-        if self.d is None:
-            from display import create_display
-            self.d = create_display(config, init=False)
-            del create_display
-            drop("display")
+        """Layout helper, created on first use after each release_ui()."""
         if self._ui is None:
             from ui.layout import UI
             self._ui = UI(self.d)
         return self._ui
-
-    def park_display(self) -> None:
-        """Before a TLS fetch: drop the TFT driver code (~4 KB). The panel keeps showing its image."""
-        if config.DISPLAY != "tft" or self.d is None:
-            return
-        self._ui = self.d = None
-        drop("ui.layout", "ui.font", "display.tft", "display.base", "display")
 
     def release_ui(self) -> None:
         """After a screen is drawn: drop layout + drawing modules, close font files."""
@@ -116,7 +104,7 @@ class App:
     # --- assets ---
 
     def load_assets(self) -> None:
-        """Float arrays per asset index (~20 B each). NaN price = not fetched yet."""
+        """Float arrays per asset index (~20 B each), prices from /prices.bin. NaN price = none yet."""
         from data import assets
         qty, buy = [], []
         for rec in assets.each():
@@ -135,6 +123,18 @@ class App:
         self.curs = [""]
         self.err = {}  # index -> last fetch error, rare
 
+        # prices written by core.fetch during the last warm boot
+        from data import prices
+        for i, p, b, ok, code, err in prices.each():
+            if i >= n:
+                break
+            if ok:
+                self.set_quote(i, p, b, code)
+            if err:
+                self.err[i] = err
+        del prices
+        drop("data.prices")
+
     def asset(self, i: int) -> dict:
         """Full record of asset i, read from flash."""
         from data import assets
@@ -144,11 +144,22 @@ class App:
         return rec
 
     def set_quote(self, i: int, p: float, b: float, code: str) -> None:
-        """Store a converted quote in the arrays."""
+        """Store a quote in the arrays."""
         if code not in self.curs:
             self.curs.append(code)
         self.price[i], self.base[i], self.cur[i] = p, b, self.curs.index(code)
-        self.err.pop(i, None)
+
+    def refresh(self, info: int = 0) -> None:
+        """Soft reset into the warm-boot fetch phase. Draws nothing: the screen stays frozen.
+
+        Only the Python VM restarts: chip, display and wifi keep running. State for the
+        next boot goes into RTC memory, which survives the soft reset.
+        """
+        import json
+        if self.srv:
+            self.srv.close()
+        machine.RTC().memory(b"W" + json.dumps({"s": self.slide, "o": self.offset, "i": info}).encode())
+        machine.soft_reset()
 
     # --- called by portal / setup ---
 

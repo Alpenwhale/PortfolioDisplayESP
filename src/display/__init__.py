@@ -25,8 +25,9 @@ def create_display(cfg, init: bool = True) -> Display:
         from machine import Pin
         from display.tft import TFT
 
-        cs = Pin(cfg.TFT_CS, Pin.OUT) if cfg.TFT_CS is not None else None
-        return TFT(make_spi(cfg), Pin(cfg.TFT_DC, Pin.OUT), Pin(cfg.TFT_RST, Pin.OUT), cs=cs,
+        # value=1: after a soft reset RST must never dip low, that would wipe the frozen image
+        cs = Pin(cfg.TFT_CS, Pin.OUT, value=1) if cfg.TFT_CS is not None else None
+        return TFT(make_spi(cfg), Pin(cfg.TFT_DC, Pin.OUT, value=1), Pin(cfg.TFT_RST, Pin.OUT, value=1), cs=cs,
                    width=cfg.TFT_WIDTH, height=cfg.TFT_HEIGHT,
                    x_offset=cfg.TFT_X_OFFSET, y_offset=cfg.TFT_Y_OFFSET,
                    rotation=cfg.TFT_ROTATION, controller=cfg.TFT_CONTROLLER,
