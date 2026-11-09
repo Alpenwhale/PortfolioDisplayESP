@@ -1,4 +1,8 @@
-"""Boot flow, main loop, FLASH button, fetching. Screens live in core.screens / core.setup."""
+"""App state, boot decision, web serving, FLASH button.
+
+Mode-specific code lives elsewhere and is only loaded when needed (RAM):
+core.setup (setup AP), core.run (normal loop + fetching), core.screens (drawing).
+"""
 import gc
 import machine
 import socket
@@ -10,17 +14,17 @@ from net import wifi
 from ui.layout import UI
 
 
-def _later(ms: int) -> int:
+def later(ms: int) -> int:
     """ticks deadline from now."""
     return time.ticks_add(time.ticks_ms(), ms)
 
 
-def _due(t: int) -> bool:
+def due(t: int) -> bool:
     """ticks deadline passed."""
     return time.ticks_diff(time.ticks_ms(), t) >= 0
 
 
-def _drop(*names: str) -> None:
+def drop(*names: str) -> None:
     """Unload modules and collect. RAM is the bottleneck on ESP8266."""
     for n in names:
         sys.modules.pop(n, None)
@@ -28,7 +32,7 @@ def _drop(*names: str) -> None:
 
 
 class App:
-    """Holds state, owns the loops."""
+    """Shared state for setup + normal mode."""
 
     def __init__(self, d) -> None:
         """Load settings, nothing networky yet."""
@@ -39,7 +43,7 @@ class App:
         self.s = store.load()
         self.sec = store.load_secret()
         del store
-        _drop("data.store")
+        drop("data.store")
 
         # runtime state
         self.q = {}              # item id -> {p, b, cur, n} and/or {err}
@@ -77,11 +81,11 @@ class App:
 
     def reboot_soon(self, ms: int = 1500) -> None:
         """Reset after the http response went out."""
-        self._reboot = _later(ms)
+        self._reboot = later(ms)
 
     def maybe_reboot(self) -> None:
         """Do the pending reset."""
-        if self._reboot and _due(self._reboot):
+        if self._reboot and due(self._reboot):
             machine.reset()
 
     # --- web ---
@@ -103,6 +107,7 @@ class App:
             return False
 
         # portal only lives in RAM for the duration of one request
+        gc.collect()
         try:
             from net import portal
             portal.handle(cl, self)
@@ -110,7 +115,7 @@ class App:
             print("portal:", repr(e))
         finally:
             cl.close()
-            _drop("net.portal", "data.store")
+            drop("net.portal", "data.store")
         return True
 
     # --- FLASH button ---
@@ -121,7 +126,7 @@ class App:
 
         # press starts
         if down and not self._press:
-            self._press = _later(0)
+            self._press = later(0)
             return
 
         # still held: countdown after 2 s, wipe at RESET_HOLD_S
@@ -144,7 +149,7 @@ class App:
             held = time.ticks_diff(time.ticks_ms(), self._press)
             self._press, self._shown_s = 0, -1
             if held < 1500 and not self.ap_mode:
-                self.info_until, self.info_page, self.info_flip = _later(config.INFO_S * 1000), 0, 0
+                self.info_until, self.info_page, self.info_flip = later(config.INFO_S * 1000), 0, 0
             self.dirty = True
 
     # --- boot ---
@@ -176,119 +181,10 @@ class App:
         while not self.btn.value():
             time.sleep_ms(50)
         gc.collect()
+
+        # hand over to the mode, each loads only its own code
         if setup:
-            from core import setup as setup_mode
-            setup_mode.run(self, reason)
-        self._normal()
-
-    def _normal(self) -> None:
-        """Connected: show the settings url briefly, then fetch + render forever."""
-        self.listen()
-        self.info_until = _later(config.INFO_S * 1000)
-        self.queue = list(range(len(self.s["items"])))
-        self.next_fetch = _later(self.s["fetch_s"] * 1000)
-        self.next_slide = self.info_until
-
-        while True:
-            self.serve()
-            self.button()
-            self.maybe_reboot()
-
-            # one fetch per loop pass keeps web + button responsive
-            if self.queue:
-                if wifi.connected():
-                    self._fetch(self.queue.pop(0))
-            elif _due(self.next_fetch):
-                self.queue = list(range(len(self.s["items"])))
-                self.next_fetch = _later(self.s["fetch_s"] * 1000)
-                self.fx = {}  # fresh exchange rates every cycle
-
-            # info screen overrides everything while active
-            if self.info_until and not _due(self.info_until):
-                if not self.info_flip or _due(self.info_flip):
-                    self._info()
-                time.sleep_ms(30)
-                continue
-            if self.info_until:
-                self.info_until, self.dirty = 0, True
-
-            # slideshow
-            n = len(self.s["items"])
-            if self.s["mode"] == "slide" and n > 1 and _due(self.next_slide):
-                self.slide = (self.slide + 1) % n
-                self.next_slide = _later(self.s["slide_s"] * 1000)
-                self.dirty = True
-
-            # redraw only on change
-            if self.dirty:
-                self.dirty = False
-                from core import screens
-                screens.render(self)
-            time.sleep_ms(30)
-
-    def _info(self) -> None:
-        """Settings url page (rotates on small screens)."""
-        from core import setup as s
-        pages = s.info_page(self.ui, self.info_page, self.ip)
-        del s
-        _drop("core.setup")
-        self.info_page = (self.info_page + 1) % pages
-        self.info_flip = _later(config.PAGE_S * 1000)
-
-    # --- data ---
-
-    def _fetch(self, i: int) -> None:
-        """Resolve (once) + quote one item. Keeps the last good price on errors."""
-        items = self.s["items"]
-        if i >= len(items):
-            return
-        it = items[i]
-        gc.collect()
-        try:
-            from net import quotes
-
-            # isin/wkn -> yahoo symbol, cached in settings
-            if not it.get("sym"):
-                it["sym"], it["yname"] = quotes.resolve(it["id"], it.get("ex", "auto"))
-                from data import store
-                store.save(self.s)
-                del store
-
-            # price + base for the configured period, then into the display currency
-            q = quotes.quote(it["sym"], self.s["period"])
-            if not q["n"]:
-                q["n"] = it.get("yname", "")
-            self.q[it["id"]] = self._convert(quotes, q)
-        except Exception as e:
-            print("fetch", it["id"], repr(e))
-            self.q.setdefault(it["id"], {})["err"] = str(e) or e.__class__.__name__
-        finally:
-            _drop("net.quotes", "data.store")
-
-        # redraw if this item is on screen
-        m = self.s["mode"]
-        if m == "port" or (m == "slide" and self.slide == i) or (m == "single" and self.s["single"] == i):
-            self.dirty = True
-
-    def _convert(self, quotes, q: dict) -> dict:
-        """Scale p/b into the display currency. FX failure -> keep native, don't lose the quote."""
-
-        # london quotes in pence
-        if q["cur"] in ("GBp", "GBX"):
-            q["p"], q["b"], q["cur"] = q["p"] / 100, q["b"] / 100, "GBP"
-
-        # nothing to do
-        want = self.s["cur"]
-        if want == "native" or not q["cur"] or q["cur"] == want:
-            return q
-
-        # one rate per currency per fetch cycle
-        try:
-            rate = self.fx.get(q["cur"])
-            if rate is None:
-                rate = self.fx[q["cur"]] = quotes.fx(q["cur"], want)
-        except Exception as e:
-            print("fx", q["cur"], want, repr(e))
-            return q
-        q["p"], q["b"], q["cur"] = q["p"] * rate, q["b"] * rate, want
-        return q
+            from core import setup as mode
+            mode.run(self, reason)
+        from core import run as mode
+        mode.loop(self)

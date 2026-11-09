@@ -5,7 +5,6 @@ Big = 2.8" TFT class: everything on one screen.
 """
 from ui import font
 
-BIG = ("xl", "l", "m", "s")  # center value, largest first
 
 
 class UI:

@@ -1,29 +1,23 @@
-"""Config web UI. Imported per request and unloaded after, RAM is tight.
+"""Config web UI backend. Imported per request and unloaded after, RAM is tight.
 
-Secrets are write-only: the page never contains a stored password.
-Basic auth (if a portal password is set) applies on the home network, not in setup AP mode;
-the AP itself is WPA2 with a static per-device password shown only on the display.
+The form itself is static (/www/index.html + s.css, streamed from flash); a little JS
+fills it from /cfg.json. So this module holds no HTML and stays small.
+Secrets are write-only: /cfg.json only says *whether* a password is set.
+Basic auth (if a portal password is set) applies on the home network, not in setup AP mode.
 """
 import binascii
+import gc
+import json
 import network
 
 import config
 from data import store
 
-MODES = (("slide", "Slideshow"), ("port", "Portfolio return"), ("single", "Single security"))
-PERIODS = (("1d", "Day"), ("5d", "Week"), ("ytd", "Year to date"), ("max", "All time"))
-NUMFMTS = (("de", "German: 1.234,56 € / +0,73 %"), ("en", "English: €1,234.56 / +0.73%"))
-CURRENCIES = (("EUR", "Euro (EUR)"), ("USD", "US Dollar (USD)"), ("GBP", "British Pound (GBP)"),
-              ("CHF", "Swiss Franc (CHF)"), ("JPY", "Japanese Yen (JPY)"),
-              ("native", "No conversion (exchange currency)"))
-
-# value = yahoo suffix (see net.quotes.resolve). "auto" prefers Xetra, "US" = no suffix.
-EXCHANGES = (("auto", "Automatic"), (".DE", "Xetra (DE)"), ("US", "NYSE / Nasdaq (US)"),
-             (".L", "London (UK)"), (".PA", "Euronext Paris (FR)"), (".AS", "Euronext Amsterdam (NL)"),
-             (".MI", "Borsa Italiana (IT)"), (".MC", "Madrid (ES)"), (".SW", "SIX Swiss (CH)"),
-             (".TO", "Toronto (CA)"), (".T", "Tokyo (JP)"), (".HK", "Hong Kong (HK)"),
-             (".AX", "Sydney (AU)"))
-CSS = "/www/s.css"  # streamed from flash, not held in RAM
+STATIC = {"/": ("/www/index.html", "text/html; charset=utf-8"), "/s.css": ("/www/s.css", "text/css")}
+MODES = ("slide", "port", "single")
+PERIODS = ("1d", "5d", "ytd", "max")
+NUMFMTS = ("de", "en")
+CURRENCIES = ("EUR", "USD", "GBP", "CHF", "JPY", "native")
 
 
 # --- tiny helpers (no str.partition / urllib on esp8266) ---
@@ -32,11 +26,6 @@ def cut(s, sep):
     """(before, after) at first sep."""
     i = s.find(sep)
     return (s, s[:0]) if i < 0 else (s[:i], s[i + len(sep):])
-
-
-def esc(s) -> str:
-    """HTML escape."""
-    return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
 
 def unquote(s: str) -> str:
@@ -77,17 +66,6 @@ def to_float(s):
         return float(s)
     except ValueError:
         return None
-
-
-def fmt(v) -> str:
-    """Float for an input value, '' for None."""
-    return "" if v is None else "%g" % v
-
-
-def options(cl, pairs, current) -> None:
-    """<option>s for a select."""
-    for k, v in pairs:
-        cl.write('<option value="%s"%s>%s</option>' % (k, " selected" if k == current else "", v))
 
 
 # --- http ---
@@ -135,17 +113,24 @@ def authed(app, hdr: dict) -> bool:
     return store.pw_check(pw, stored)
 
 
-def send(cl, status: str, body: str = "", extra: str = "") -> None:
-    """Small html response."""
-    cl.write("HTTP/1.0 %s\r\nContent-Type: text/html; charset=utf-8\r\n%sConnection: close\r\n\r\n%s"
-             % (status, extra, body))
+def head(cl, status: str, ctype: str = "text/plain", extra: str = "") -> None:
+    """Status line + headers."""
+    cl.write("HTTP/1.0 %s\r\nContent-Type: %s\r\n%sConnection: close\r\n\r\n" % (status, ctype, extra))
 
 
-# --- page ---
+def send_file(cl, path: str, ctype: str) -> None:
+    """Stream a flash file in small chunks."""
+    head(cl, "200 OK", ctype)
+    with open(path, "rb") as fh:
+        while True:
+            b = fh.read(512)
+            if not b:
+                break
+            cl.write(b)
 
-def page(cl, app, note: str = "") -> None:
-    """Settings form, streamed in small writes."""
-    s, sec = app.s, app.sec
+
+def send_cfg(cl, app) -> None:
+    """Settings as json for the form. Only flags for secrets."""
 
     # visible networks for the ssid field
     try:
@@ -153,65 +138,9 @@ def page(cl, app, note: str = "") -> None:
     except Exception:
         nets = []
 
-    # head
-    send(cl, "200 OK", '<!doctype html><html lang=en><meta name=viewport content="width=device-width,'
-                       'initial-scale=1"><title>PortfolioDisplay</title><link rel=stylesheet href=/s.css>'
-                       "<h1>PortfolioDisplay</h1>")
-    if note:
-        cl.write("<p>%s</p>" % note)
-
-    # wifi, password never echoed
-    cl.write('<form method=post action=/save><h2>Wi-Fi</h2><label>Network</label>'
-             '<input name=ssid list=nets value="%s" autocomplete=off><datalist id=nets>' % esc(s["ssid"]))
-    for n in nets:
-        cl.write('<option value="%s">' % esc(n))
-    cl.write('</datalist><label>Password</label><input name=pw type=password autocomplete=new-password '
-             'placeholder="%s">' % ("saved - leave empty to keep" if sec.get("pw") else ""))
-
-    # display mode, period, timings
-    cl.write("<h2>Display</h2><label>Mode</label><select name=mode>")
-    options(cl, MODES, s["mode"])
-    cl.write("</select><label>Single security</label><select name=single>")
-    options(cl, [(str(i), esc(it.get("name") or it["id"])) for i, it in enumerate(s["items"])], str(s["single"]))
-    cl.write("</select><label>Show change over</label><select name=period>")
-    options(cl, PERIODS, s["period"])
-    cl.write("</select><label>Number format</label><select name=numfmt>")
-    options(cl, NUMFMTS, s["numfmt"])
-    cl.write("</select><label>Currency (prices are converted at today's rate)</label><select name=cur>")
-    options(cl, CURRENCIES, s["cur"])
-    cl.write('</select><div class=g><div><label>Slide time (s)</label><input name=slide_s type=number '
-             'min=3 value=%d></div><div><label>Refresh every (s)</label><input name=fetch_s type=number '
-             'min=60 value=%d></div></div>' % (s["slide_s"], s["fetch_s"]))
-
-    # securities, one empty row for adding
-    cl.write("<h2>Securities</h2><small>ISIN, WKN or ticker (e.g. AAPL). Quantity + buy price are "
-             "optional, needed for returns. Enter the buy price in the display currency above.</small>")
-    rows = s["items"] + ([{}] if len(s["items"]) < store.MAX_ITEMS else [])
-    for i, it in enumerate(rows):
-        sym = it.get("sym", "")
-        cl.write('<div class=row><label>Identifier%s</label><input name=id%d value="%s">'
-                 '<label>Exchange</label><select name=ex%d>'
-                 % (" &rarr; " + esc(sym) if sym and sym != it.get("id") else "", i, esc(it.get("id", "")), i))
-        options(cl, EXCHANGES, it.get("ex", "auto"))
-        cl.write('</select><label>Description</label><input name=name%d value="%s" placeholder="automatic">'
-                 '<div class=g><div><label>Quantity</label><input name=qty%d inputmode=decimal value="%s"></div>'
-                 '<div><label>Buy price</label><input name=buy%d inputmode=decimal value="%s"></div></div>'
-                 % (i, esc(it.get("name", "")), i, fmt(it.get("qty")), i, fmt(it.get("buy"))))
-        if it:
-            cl.write('<label><input class=cb type=checkbox name=del%d> remove</label>' % i)
-        cl.write("</div>")
-
-    # security: portal password + setup wifi password
-    cl.write('<h2>Security</h2><label>Password for this page on your network %s</label>'
-             '<input name=pp type=password autocomplete=new-password placeholder="%s">'
-             % ("(set)" if sec.get("pp") else "(optional)", "leave empty to keep" if sec.get("pp") else ""))
-    if sec.get("pp"):
-        cl.write('<label><input class=cb type=checkbox name=ppdel> remove password</label><br>')
-    cl.write('<label><input class=cb type=checkbox name=apnew> new setup Wi-Fi password '
-             "(normally it never changes)</label>"
-             "<p><small>Forgot the password? Press FLASH while the display shows 'Starting...' "
-             "= setup mode without login. Hold FLASH for %d s = factory reset.</small></p>"
-             "<button>Save</button></form>" % config.RESET_HOLD_S)
+    head(cl, "200 OK", "application/json", "Cache-Control: no-store\r\n")
+    cl.write(json.dumps({"s": app.s, "pw": bool(app.sec.get("pw")), "pp": bool(app.sec.get("pp")),
+                         "nets": nets, "max": store.MAX_ITEMS, "reset_s": config.RESET_HOLD_S}))
 
 
 # --- save ---
@@ -235,16 +164,11 @@ def apply(app, f: dict) -> bool:
     if f.get("apnew"):
         store.new_ap_password()
 
-    # display settings, clamped
-    if f.get("mode") in [k for k, _ in MODES]:
-        s["mode"] = f["mode"]
+    # display settings, only known values, numbers clamped
     old = (s["period"], s["cur"])
-    if f.get("period") in [k for k, _ in PERIODS]:
-        s["period"] = f["period"]
-    if f.get("numfmt") in [k for k, _ in NUMFMTS]:
-        s["numfmt"] = f["numfmt"]
-    if f.get("cur") in [k for k, _ in CURRENCIES]:
-        s["cur"] = f["cur"]
+    for key, allowed in (("mode", MODES), ("period", PERIODS), ("numfmt", NUMFMTS), ("cur", CURRENCIES)):
+        if f.get(key) in allowed:
+            s[key] = f[key]
     s["slide_s"] = max(3, min(3600, int(to_float(f.get("slide_s")) or 8)))
     s["fetch_s"] = max(60, min(86400, int(to_float(f.get("fetch_s")) or 300)))
 
@@ -267,13 +191,15 @@ def apply(app, f: dict) -> bool:
     s["items"] = items
     s["single"] = max(0, min(len(items) - 1, int(to_float(f.get("single")) or 0)))
 
-    # persist, refetch if period or currency moved
+    # persist (collect first, AES needs a few contiguous blocks), refetch if period or currency moved
+    f.clear()  # caller still holds the dict, empty it so the strings can go
+    del prev_items
+    gc.collect()
     store.save(s)
+    gc.collect()
     store.save_secret(sec)
     if (s["period"], s["cur"]) != old:
         app.refetch_all()
-    else:
-        app.dirty = True  # number format is render-only
     return reboot
 
 
@@ -281,29 +207,34 @@ def handle(cl, app) -> None:
     """One request."""
     cl.settimeout(5)
     method, path, hdr, body = read_request(cl)
+    path = cut(path, "?")[0]
 
     # css is public, everything else behind auth
     if path == "/s.css":
-        cl.write("HTTP/1.0 200 OK\r\nContent-Type: text/css\r\nCache-Control: max-age=86400\r\n\r\n")
-        with open(CSS, "rb") as fh:
-            while True:
-                b = fh.read(256)
-                if not b:
-                    break
-                cl.write(b)
+        send_file(cl, *STATIC[path])
         return
     if not authed(app, hdr):
-        send(cl, "401 Unauthorized", "Login required", 'WWW-Authenticate: Basic realm="PortfolioDisplay"\r\n')
+        head(cl, "401 Unauthorized", extra='WWW-Authenticate: Basic realm="PortfolioDisplay"\r\n')
+        cl.write("Login required")
         return
 
     # save: reboot page or back to the form
     if method == "POST" and path == "/save":
-        if apply(app, parse_form(body)):
-            send(cl, "200 OK", '<meta name=viewport content="width=device-width"><link rel=stylesheet '
-                               "href=/s.css><h1>Saved</h1><p>The device restarts and joins your Wi-Fi.</p>")
+        f = parse_form(body)
+        body = hdr = None
+        gc.collect()
+        if apply(app, f):
+            head(cl, "200 OK", "text/html; charset=utf-8")
+            cl.write('<meta name=viewport content="width=device-width"><link rel=stylesheet href=/s.css>'
+                     "<h1>Saved</h1><p>The device restarts and joins your Wi-Fi.</p>")
             app.reboot_soon()
         else:
             app.applied()
-            send(cl, "303 See Other", "", "Location: /?ok\r\n")
+            head(cl, "303 See Other", extra="Location: /?ok\r\n")
         return
-    page(cl, app, "Saved." if path.endswith("?ok") else "")
+
+    # form + its data, anything else (captive portal probes etc.) gets the form too
+    if path == "/cfg.json":
+        send_cfg(cl, app)
+    else:
+        send_file(cl, *STATIC["/"])

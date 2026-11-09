@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang=en>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>PortfolioDisplay</title>
+<link rel=stylesheet href=/s.css>
+<h1>PortfolioDisplay</h1>
+<p id=note></p>
+<form method=post action=/save id=f>
+
+<h2>Wi-Fi</h2>
+<label>Network</label><input name=ssid list=nets autocomplete=off><datalist id=nets></datalist>
+<label>Password</label><input name=pw type=password autocomplete=new-password>
+
+<h2>Display</h2>
+<label>Mode</label>
+<select name=mode>
+<option value=slide>Slideshow<option value=port>Portfolio return<option value=single>Single security
+</select>
+<label>Single security</label><select name=single></select>
+<label>Show change over</label>
+<select name=period>
+<option value=1d>Day<option value=5d>Week<option value=ytd>Year to date<option value=max>All time
+</select>
+<label>Number format</label>
+<select name=numfmt>
+<option value=de>German: 1.234,56 € / +0,73 %<option value=en>English: €1,234.56 / +0.73%
+</select>
+<label>Currency (prices are converted at today's rate)</label>
+<select name=cur>
+<option value=EUR>Euro (EUR)<option value=USD>US Dollar (USD)<option value=GBP>British Pound (GBP)
+<option value=CHF>Swiss Franc (CHF)<option value=JPY>Japanese Yen (JPY)
+<option value=native>No conversion (exchange currency)
+</select>
+<div class=g>
+<div><label>Slide time (s)</label><input name=slide_s type=number min=3></div>
+<div><label>Refresh every (s)</label><input name=fetch_s type=number min=60></div>
+</div>
+
+<h2>Securities</h2>
+<small>ISIN, WKN or ticker (e.g. AAPL). Quantity + buy price are optional, needed for returns.
+Enter the buy price in the display currency above.</small>
+<div id=rows></div>
+
+<h2>Security</h2>
+<label>Password for this page on your network <span id=ppstate></span></label>
+<input name=pp type=password autocomplete=new-password>
+<label id=ppdel hidden><input class=cb type=checkbox name=ppdel> remove password</label>
+<label><input class=cb type=checkbox name=apnew> new setup Wi-Fi password (normally it never changes)</label>
+<p><small>Forgot the password? Press FLASH while the display shows 'Starting...' = setup mode
+without login. Hold FLASH for <span id=resets>10</span> s = factory reset.</small></p>
+<button>Save</button>
+</form>
+
+<template id=row>
+<div class=row>
+<label>Identifier <span class=sym></span></label><input data-n=id>
+<label>Exchange</label>
+<select data-n=ex>
+<option value=auto>Automatic<option value=.DE>Xetra (DE)<option value=US>NYSE / Nasdaq (US)
+<option value=.L>London (UK)<option value=.PA>Euronext Paris (FR)<option value=.AS>Euronext Amsterdam (NL)
+<option value=.MI>Borsa Italiana (IT)<option value=.MC>Madrid (ES)<option value=.SW>SIX Swiss (CH)
+<option value=.TO>Toronto (CA)<option value=.T>Tokyo (JP)<option value=.HK>Hong Kong (HK)
+<option value=.AX>Sydney (AU)
+</select>
+<label>Description</label><input data-n=name placeholder=automatic>
+<div class=g>
+<div><label>Quantity</label><input data-n=qty inputmode=decimal></div>
+<div><label>Buy price</label><input data-n=buy inputmode=decimal></div>
+</div>
+<label class=rm><input class=cb type=checkbox data-n=del> remove</label>
+</div>
+</template>
+
+<script>
+// settings come from /cfg.json, secrets never do
+const $ = s => document.querySelector(s), f = $('#f');
+if (location.search == '?ok') $('#note').textContent = 'Saved.';
+fetch('/cfg.json').then(r => r.json()).then(c => {
+  const s = c.s;
+
+  // plain fields
+  for (const k of ['ssid', 'mode', 'period', 'numfmt', 'cur', 'slide_s', 'fetch_s']) f.elements[k].value = s[k];
+  f.pw.placeholder = c.pw ? 'saved - leave empty to keep' : '';
+  for (const n of c.nets) $('#nets').append(new Option(n));
+
+  // single security picker
+  s.items.forEach((it, i) => f.single.append(new Option(it.name || it.id, i)));
+  f.single.value = s.single;
+
+  // one row per security + one empty row to add
+  const rows = s.items.concat(s.items.length < c.max ? [{}] : []);
+  rows.forEach((it, i) => {
+    const r = $('#row').content.cloneNode(true);
+    for (const e of r.querySelectorAll('[data-n]')) {
+      e.name = e.dataset.n + i;
+      const v = it[e.dataset.n];
+      if (e.type != 'checkbox' && v != null) e.value = v;
+    }
+    if (!it.ex) r.querySelector('select').value = 'auto';
+    if (it.sym && it.sym != it.id) r.querySelector('.sym').textContent = '→ ' + it.sym;
+    if (!it.id) r.querySelector('.rm').hidden = true;
+    $('#rows').append(r);
+  });
+
+  // portal password state
+  $('#ppstate').textContent = c.pp ? '(set)' : '(optional)';
+  f.pp.placeholder = c.pp ? 'leave empty to keep' : '';
+  $('#ppdel').hidden = !c.pp;
+  $('#resets').textContent = c.reset_s;
+});
+</script>

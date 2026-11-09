@@ -1,10 +1,11 @@
-"""Render every screen on the PC with the real ui/core code -> PNGs in tools/sim_out/.
+"""Render every screen on the PC with the real ui/core code -> docs/img/<WxH>/*.png.
 
-Usage: uv run tools/sim.py [--docs]     (--docs also refreshes docs/img/ for SETUP.md)
-Sizes: 128x64 mono (0.96" OLED) and 320x240 color (2.8" TFT).
+Usage: uv run tools/sim.py
+Sizes: 128x64 mono (0.96" OLED) and 320x240 color (2.8" TFT). The PNGs are the ones
+docs/SETUP.md shows, so running this keeps the docs in sync with the layout.
 Board-only modules (framebuf, machine, network) are stubbed; the builtin 8x8 font is
 approximated with Pillow's bitmap font, widths are exact (8 px/char).
-Also checks the QR encoder against segno module-by-module.
+Also decodes the QR codes with zxing-cpp.
 """
 import sys
 import types
@@ -13,7 +14,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "tools" / "sim_out"
+OUT = ROOT / "docs" / "img"
 sys.path.insert(0, str(ROOT / "src"))
 
 
@@ -119,11 +120,6 @@ QUOTES = {
 }
 
 
-# screenshots used in docs/SETUP.md (copied by --docs)
-DOC_SHOTS = ("boot", "setup0", "setup1", "setup2", "info0", "info1", "reset",
-             "slide0", "slide1", "slide2", "portfolio", "single", "slide1_en")
-
-
 class FakeApp:
     """Just the fields core.screens reads."""
 
@@ -180,15 +176,6 @@ def main() -> None:
         shot("single", lambda u: screens.render(FakeApp(u, "single")))
     check_qr()
     print("pngs in", OUT)
-
-    # --docs: refresh the screenshots referenced by docs/SETUP.md
-    if "--docs" in sys.argv:
-        for tag in ("128x64", "320x240"):
-            dst = ROOT / "docs" / "img" / tag
-            dst.mkdir(parents=True, exist_ok=True)
-            for name in DOC_SHOTS:
-                shutil.copy2(OUT / tag / (name + ".png"), dst / (name + ".png"))
-        print("docs images in", ROOT / "docs" / "img")
 
 
 if __name__ == "__main__":
