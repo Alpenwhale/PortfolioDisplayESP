@@ -79,7 +79,7 @@ class TFT(Display):
         self._cmd(0x13)  # normal mode
         self._cmd(0x29)  # on
         time.sleep_ms(50)
-        self._glyph = framebuf.FrameBuffer(bytearray(8), 8, 8, framebuf.MONO_HLSB)
+        self._pal = framebuf.FrameBuffer(bytearray(4), 2, 1, framebuf.RGB565)
 
     def _cmd(self, c: int, data: bytes = None) -> None:
         """Send command plus optional data."""
@@ -128,25 +128,12 @@ class TFT(Display):
             total -= n
         self.cs(1)
 
-    def text(self, s: str, x: int, y: int, color: int, bg: int = 0, scale: int = 1) -> None:
-        """Draw text char by char, scaled. Cuts off at right edge."""
-        size = 8 * scale
-        buf = bytearray(size * size * 2)
-        fg = bytes([color >> 8, color & 0xFF])
-        bk = bytes([bg >> 8, bg & 0xFF])
-        g = self._glyph
-        for ch in s:
-            if x + size > self.width:
-                break
-            g.fill(0)
-            g.text(ch, 0, 0, 1)
-            i = 0
-            for row in range(8):
-                line = bytearray()
-                for col in range(8):
-                    line += (fg if g.pixel(col, row) else bk) * scale
-                for _ in range(scale):
-                    buf[i:i + len(line)] = line
-                    i += len(line)
-            self._blit(x, y, size, size, buf)
-            x += size
+    def blit_mono(self, buf: bytearray, w: int, h: int, x: int, y: int, fg: int, bg: int) -> None:
+        """Expand 1-bit to RGB565 via framebuf palette (C speed), then push."""
+        out = bytearray(w * h * 2)
+        # framebuf stores RGB565 little endian, panel wants big endian -> swap
+        self._pal.pixel(0, 0, ((bg & 0xFF) << 8) | (bg >> 8))
+        self._pal.pixel(1, 0, ((fg & 0xFF) << 8) | (fg >> 8))
+        framebuf.FrameBuffer(out, w, h, framebuf.RGB565).blit(
+            framebuf.FrameBuffer(buf, w, h, framebuf.MONO_HLSB), 0, 0, -1, self._pal)
+        self._blit(x, y, w, h, out)

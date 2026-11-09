@@ -22,6 +22,12 @@ TFT_CS = None           # None = tied low on module
 TFT_DC: int = 4         # D2
 TFT_RST: int = 5        # D1
 
+# --- app ---
+BUTTON_PIN: int = 0         # FLASH button, held at boot = setup mode
+AP_PREFIX: str = "PortfolioDisplay"
+WIFI_TIMEOUT_S: int = 20
+SETUP_IDLE_S: int = 600     # setup AP reboots after this idle time to retry wifi
+
 # --- SSD1306 OLED (I2C), later ---
 OLED_SCL: int = 5       # D1
 OLED_SDA: int = 4       # D2

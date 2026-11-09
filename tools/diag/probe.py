@@ -11,7 +11,7 @@ Tells you: the values for TFT_CONTROLLER / TFT_SPI_MODE / TFT_INVERT in config.p
 import time
 from machine import Pin
 import config as cfg
-from display import make_spi
+from display import font, make_spi
 from display.tft import TFT
 
 # (controller, spi mode, invert)
@@ -33,9 +33,8 @@ def show(n: int, controller: str, mode: int, invert: bool) -> None:
             controller=controller, invert=invert, bgr=cfg.TFT_BGR)
     red, white = d.rgb(200, 0, 0), d.rgb(255, 255, 255)
     d.fill(red)
-    d.text(str(n), d.width // 2 - 40, 40, white, red, scale=10)
-    d.text("{} m{}{}".format(controller, mode, " inv" if invert else ""),
-           8, d.height - 24, white, red, scale=2)
+    d.draw(font.get("xl"), str(n), d.width // 2 - 15, 40, white, red)
+    d.text("{} m{}{}".format(controller, mode, " inv" if invert else ""), 8, d.height - 16, white, red)
 
 
 for n, v in enumerate(VARIANTS, 1):
