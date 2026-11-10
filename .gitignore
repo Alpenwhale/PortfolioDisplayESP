@@ -2,6 +2,5 @@
 .idea/
 __pycache__/
 build/
-tools/sim_out/
 *.bin
 src/secrets.py

@@ -66,7 +66,9 @@ class App:
         self.dirty = True
         self.slide = 0
         self.offset = 0          # next asset batch for core.fetch
+        self.cycle = 0           # refresh counter since the cold boot
         self.show_info = 0       # show the settings url right after this boot
+        self.t_refresh = None    # ticks when the last refresh froze the screen (warm boot only)
         self.next_slide = 0
         self.next_fetch = 0
         self.info_until = 0      # info screen (settings url) active until
@@ -153,35 +155,27 @@ class App:
         """Soft reset into the warm-boot fetch phase. Draws nothing: the screen stays frozen.
 
         Only the Python VM restarts: chip, display and wifi keep running. State for the
-        next boot goes into RTC memory, which survives the soft reset.
+        next boot goes into RTC memory, which survives the soft reset. "t" = ticks now, so
+        main.py can tell a fresh marker from one left over before a chip reset.
         """
         import json
         if self.srv:
             self.srv.close()
-        machine.RTC().memory(b"W" + json.dumps({"s": self.slide, "o": self.offset, "i": info}).encode())
-        machine.soft_reset()
+        state = {"s": self.slide, "o": self.offset, "c": self.cycle, "i": info, "t": time.ticks_ms()}
+        machine.RTC().memory(b"W" + json.dumps(state).encode())
+        print("refresh: soft reset")
+        from core import reset
+        reset.soft_reset()
 
     # --- called by portal / setup ---
 
-    def applied(self) -> None:
-        """Asset list or settings changed without reboot: reload numbers, refetch all, redraw."""
-        self.load_assets()
-        self.queue = list(range(self.n))
-        self.slide = 0
-        self.dirty = True
-
-    def refetch_all(self) -> None:
-        """Period or currency changed: rates are stale too."""
-        self.fx = {}
-        self.applied()
-
-    def saved(self, reboot: bool) -> None:
-        """Feedback on the device itself after a portal save."""
-        if reboot:
-            self.ui.message("Saved", ["Restarting..."])
-            self.reboot_soon()
-        else:
-            self.applied()
+    def saved(self) -> None:
+        """Portal saved a form: reboot (main.py applies it at the next boot). Called after the portal is unloaded."""
+        self.reboot_soon()
+        try:
+            self.message("Saved", ["Restarting..."])
+        except MemoryError:
+            pass  # the reboot is what matters
 
     def reboot_soon(self, ms: int = 1500) -> None:
         """Reset after the http response went out."""
@@ -244,11 +238,11 @@ class App:
             left = config.RESET_HOLD_S - held
             if held >= 2 and left != self._shown_s:
                 self._shown_s = left
-                self.ui.message("Factory reset", ["keep holding %d s" % left, "release = cancel"])
+                self.message("Factory reset", ["keep holding %d s" % left, "release = cancel"])
             if left <= 0:
                 from data import store
                 store.factory_reset()
-                self.ui.message("Reset done", ["Rebooting..."])
+                self.message("Reset done", ["Rebooting..."])
                 time.sleep_ms(1500)
                 machine.reset()
             return

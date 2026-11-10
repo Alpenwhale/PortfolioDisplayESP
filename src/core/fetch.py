@@ -12,6 +12,9 @@ import time
 
 import config
 
+PERMANENT = ("not found", "WKN: use the ISIN", "not on this exchange")  # errors of net.search.resolve
+RETRY_EVERY = 12  # such assets are tried again every 12th refresh (and on every cold boot)
+
 
 def _drop(*names: str) -> None:
     """Unload modules (also from the parent package) and collect."""
@@ -56,10 +59,15 @@ def _convert(q: dict, want: str, fx: dict) -> dict:
     return q
 
 
-def _one(i: int, period: str, want: str, fx: dict) -> None:
+def _one(i: int, period: str, want: str, fx: dict, retry: bool) -> None:
     """Resolve (once) + quote asset i into its prices.bin record. Keeps the last good price on errors."""
     from data import assets, prices
     rec = assets.read(i)
+
+    # an identifier yahoo doesn't know won't work a minute later either: skip it (no network,
+    # no freeze time) except every RETRY_EVERY-th cycle. Saving in the portal clears the mark.
+    if rec.get("nf") and not retry:
+        return
     old = prices.read(i)
     try:
 
@@ -67,10 +75,13 @@ def _one(i: int, period: str, want: str, fx: dict) -> None:
         if not rec.get("sym"):
             from net import search
             _need_ram()
-            rec["sym"], rec["yname"] = search.resolve(rec["id"], rec.get("ex", "auto"))
+            sym, name = search.resolve(rec["id"], rec.get("ex", "auto"))
             del search
             _drop("net.search")
-            assets.update(i, sym=rec["sym"], yname=rec["yname"])
+
+            # yahoo pads names and appends a share class after a run of spaces ("KION GROUP AG      I")
+            rec["sym"], rec["yname"] = sym, name.split("  ")[0].strip()
+            assets.update(i, sym=sym, yname=rec["yname"])
 
         # price + base for the period, then into the display currency
         from net import quotes
@@ -81,12 +92,16 @@ def _one(i: int, period: str, want: str, fx: dict) -> None:
         q = _convert(q, want, fx)
         prices.write(i, q["p"], q["b"], 1, q["cur"], "")
         if not rec.get("yname") and q["n"]:
-            assets.update(i, yname=q["n"])
+            assets.update(i, yname=q["n"].split("  ")[0].strip())
+        if rec.get("nf"):
+            assets.update(i, nf=0)
         print("fetch", rec.get("id"), q["p"], q["cur"])
     except Exception as e:
         msg = str(e) or e.__class__.__name__
         print("fetch", rec.get("id"), msg)
         prices.write(i, old[0], old[1], old[2], old[3], msg)
+        if msg in PERMANENT and not rec.get("nf"):
+            assets.update(i, nf=1)
     finally:
         _drop("net.search", "net.quotes")
 
@@ -120,9 +135,21 @@ def run(state: dict) -> dict:
     if not n:
         return state
     start, count = state.get("o", 0) % n, min(config.FETCH_BATCH, n)
+    gc.collect()
+    print("fetch phase: %d of %d assets from #%d, free %d" % (count, n, start, gc.mem_free()))
+
+    # the screen is frozen while this runs, so the whole batch has a time budget
     fx = {}
+    t0 = time.ticks_ms()
+    done = 0
+    retry = state.get("c", 0) % RETRY_EVERY == 0
+    state["c"] = state.get("c", 0) + 1
     for k in range(count):
-        _one((start + k) % n, period, want, fx)
+        _one((start + k) % n, period, want, fx, retry)
         _drop("data.assets", "data.prices")
-    state["o"] = (start + count) % n
+        done += 1
+        if time.ticks_diff(time.ticks_ms(), t0) > config.FETCH_MAX_S * 1000:
+            print("fetch phase: time budget used up")
+            break
+    state["o"] = (start + done) % n
     return state

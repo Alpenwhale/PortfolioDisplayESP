@@ -19,7 +19,7 @@ def _q(s: str) -> str:
 
 def _open(url: str):
     """GET, raises OSError on non-200. Caller closes."""
-    r = requests.get(url, headers=_HDR)
+    r = requests.get(url, headers=_HDR, timeout=10)
     if r.status_code != 200:
         r.close()
         raise OSError("HTTP %d" % r.status_code)

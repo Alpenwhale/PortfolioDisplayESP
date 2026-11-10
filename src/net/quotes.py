@@ -21,7 +21,7 @@ def _q(s: str) -> str:
 
 def _open(url: str):
     """GET, raises OSError on non-200. Caller closes."""
-    r = requests.get(url, headers=_HDR)
+    r = requests.get(url, headers=_HDR, timeout=10)  # never hang forever, the screen is frozen meanwhile
     if r.status_code != 200:
         r.close()
         raise OSError("HTTP %d" % r.status_code)
@@ -133,4 +133,3 @@ def quote(sym: str, period: str = "1d") -> dict:
         "cur": meta.get("currency", ""),
         "n": meta.get("shortName") or meta.get("longName") or "",
     }
-

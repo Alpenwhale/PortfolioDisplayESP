@@ -81,7 +81,7 @@ def setup_page(ui, page: int, ssid: str, pw: str, ip: str, reason: str) -> int:
 
 
 def info_page(ui, page: int, ip: str) -> int:
-    """Settings address while running. Returns page count."""
+    """Settings address while running. No wifi name on purpose (photos of the display would leak it)."""
     url = "http://" + ip
     if not ui.small:
         _qr_panel(ui, url, [("Settings", ui.fg), (url, ui.fg), ("same Wi-Fi only", ui.dim)])

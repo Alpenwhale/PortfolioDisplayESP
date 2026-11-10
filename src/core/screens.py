@@ -26,7 +26,8 @@ def render(app) -> None:
 
 def _labels(rec: dict) -> list:
     """Name if it fits, else the id (ISIN/WKN/ticker)."""
-    name = rec.get("name") or rec.get("yname") or ""
+    # yahoo pads names and appends a share class after a run of spaces ("KION GROUP AG      I")
+    name = (rec.get("name") or rec.get("yname") or "").split("  ")[0].strip()
     return [name, rec.get("id", "?")] if name else [rec.get("id", "?")]
 
 

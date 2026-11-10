@@ -69,8 +69,22 @@ class UI:
         w = w or d.width
         room = w - 2 * self.m
 
-        # fonts first, then drop lines from the bottom until the stack fits the height
-        rows = [self.pick(s, room, names) + (c,) for s, c in lines]
+        # largest fitting font per line; too long even for the smallest -> two lines instead of cutting
+        rows = []
+        for s, c in lines:
+            f, t = self.pick(s, room, names)
+            if t == s:
+                rows.append((f, t, c))
+                continue
+            k = (len(s) + 1) // 2
+            a, b = self.pick(s[:k], room, names), self.pick(s[k:], room, names)
+
+            # both halves in the same (smaller) font
+            f = a[0] if a[0].height <= b[0].height else b[0]
+            rows.append((f, self.fit(f, [s[:k]], room), c))
+            rows.append((f, self.fit(f, [s[k:]], room), c))
+
+        # then drop lines from the bottom until the stack fits the height
         while rows and sum(f.height for f, _, _ in rows) + self.gap * (len(rows) - 1) > d.height:
             rows.pop()
 
@@ -84,4 +98,3 @@ class UI:
         self.d.fill(self.bg)
         self.column([(title, self.fg)] + [(s, self.dim) for s in lines])
         self.d.show()
-

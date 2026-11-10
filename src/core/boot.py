@@ -31,7 +31,9 @@ def start(state):
         app.ip = network.WLAN(network.STA_IF).ifconfig()[0]
         app.slide = state.get("s", 0)
         app.offset = state.get("o", 0)
+        app.cycle = state.get("c", 0)
         app.show_info = state.get("i", 0)
+        app.t_refresh = state.get("t")  # when the screen froze, run.thawed() measures from here
         return app, ""
 
     # portal form saved before the last reboot? apply it now, the heap is still nearly empty
@@ -77,8 +79,10 @@ def start(state):
     while not app.btn.value():
         time.sleep_ms(50)
 
-    # connected: first prices via a refresh soft reset (this message stays up meanwhile)
-    if not reason:
-        app.message("Loading prices", [app.ip])
+    # connected: first prices via a refresh soft reset (this message stays up meanwhile).
+    # without assets there's nothing to fetch, go straight to the loop + settings url
+    if not reason and app.n:
+        app.message("Loading prices", [])
         app.refresh(info=1)
+    app.show_info = 1
     return app, reason

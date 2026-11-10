@@ -106,26 +106,36 @@ class SimDisplay(Display):
 
 # --- scenarios ---
 
+# asset records (what /assets.jsonl holds) + their quotes (price, base, currency) or an error
 ITEMS = [
-    {"id": "IE00B4L5Y983", "name": "MSCI World", "qty": 10.0, "buy": 80.0},
-    {"id": "AAPL", "name": "", "qty": None, "buy": None},
-    {"id": "DE0007164600", "name": "", "qty": 2.0, "buy": 150.0},
-    {"id": "A1JX52", "name": "Ein sehr langer Fondsname der nie passt", "qty": 1.0, "buy": 10.0},
+    ({"id": "IE00B4L5Y983", "name": "MSCI World", "qty": 10.0, "buy": 80.0, "yname": "iShares Core MSCI World"},
+     (101.23, 100.5, "EUR")),
+    ({"id": "AAPL", "name": "", "yname": "Apple Inc."}, (1228.9, 1231.1, "USD")),
+    ({"id": "DE0007164600", "name": "", "qty": 2.0, "buy": 150.0}, "HTTP 404"),
+    ({"id": "A1JX52", "name": "Ein sehr langer Fondsname der nie passt", "qty": 1.0, "buy": 10.0},
+     (9.1234, 9.0, "EUR")),
 ]
-QUOTES = {
-    "IE00B4L5Y983": {"p": 101.23, "b": 100.5, "cur": "EUR", "n": "iShares Core MSCI World"},
-    "AAPL": {"p": 1228.9, "b": 1231.1, "cur": "USD", "n": "Apple Inc."},
-    "DE0007164600": {"err": "HTTP 404"},
-    "A1JX52": {"p": 9.1234, "b": 9.0, "cur": "EUR", "n": ""},
-}
+NAN = float("nan")
 
 
 class FakeApp:
-    """Just the fields core.screens reads."""
+    """Same fields core.screens reads from core.app.App: settings, float arrays, asset()."""
 
-    def __init__(self, ui, mode: str, slide: int = 0, period: str = "1d") -> None:
-        self.ui, self.slide, self.q, self.ip = ui, slide, QUOTES, "192.168.178.123"
-        self.s = {"items": ITEMS, "mode": mode, "single": 0, "period": period}
+    def __init__(self, ui, mode: str, slide: int = 0, period: str = "1d", numfmt: str = "de") -> None:
+        self.ui, self.slide, self.ip = ui, slide, "192.168.178.123"
+        self.s = {"mode": mode, "single": 0, "period": period, "numfmt": numfmt}
+        self.n = len(ITEMS)
+        self.qty = [r.get("qty") or 0.0 for r, _ in ITEMS]
+        self.buy = [r.get("buy") or 0.0 for r, _ in ITEMS]
+        self.price = [q[0] if isinstance(q, tuple) else NAN for _, q in ITEMS]
+        self.base = [q[1] if isinstance(q, tuple) else NAN for _, q in ITEMS]
+        self.curs = ["", "EUR", "USD"]
+        self.cur = [self.curs.index(q[2]) if isinstance(q, tuple) else 0 for _, q in ITEMS]
+        self.err = {i: q for i, (_, q) in enumerate(ITEMS) if isinstance(q, str)}
+
+    def asset(self, i: int) -> dict:
+        """Record i."""
+        return ITEMS[i][0]
 
 
 def check_qr() -> None:
@@ -163,17 +173,19 @@ def main() -> None:
             fn(UI(d))
             d.save(name)
 
-        shot("boot", lambda u: u.message("PortfolioDisplay", ["Starte...", "FLASH = Einrichtung"]))
-        shot("reset", lambda u: u.message("Zurücksetzen", ["noch 7 s halten", "loslassen = Abbruch"]))
+        shot("boot", lambda u: u.message("PortfolioDisplay", ["Starting..."]))
+        shot("reset", lambda u: u.message("Factory reset", ["keep holding 7 s", "release = cancel"]))
         for p in range(3):
             shot("setup%d" % p, lambda u, p=p: setup.setup_page(u, p, "Portfolio-AB12", "k7mz3ab9xq",
-                                                                 "192.168.4.1", "kein WLAN"))
+                                                                 "192.168.4.1", "no Wi-Fi set"))
         for p in range(2):
             shot("info%d" % p, lambda u, p=p: setup.info_page(u, p, "192.168.178.123"))
         for i in range(len(ITEMS)):
             shot("slide%d" % i, lambda u, i=i: screens.render(FakeApp(u, "slide", i)))
         shot("slide0_ytd", lambda u: screens.render(FakeApp(u, "slide", 0, "ytd")))
         shot("portfolio", lambda u: screens.render(FakeApp(u, "port")))
+        shot("portfolio_en", lambda u: screens.render(FakeApp(u, "port", numfmt="en")))
+        shot("slide1_en", lambda u: screens.render(FakeApp(u, "slide", 1, numfmt="en")))
         shot("single", lambda u: screens.render(FakeApp(u, "single")))
     check_qr()
     print("pngs in", OUT)

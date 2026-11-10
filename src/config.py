@@ -38,4 +38,5 @@ RESET_HOLD_S: int = 10      # FLASH held this long = factory reset
 PAGE_S: int = 5             # small screens: setup/info pages rotate this fast
 TLS_MIN_FREE: int = 22000   # Yahoo TLS: 18 KB was ok for query1, query2 crashed above 18.5; 22 KB always ok
 FETCH_BATCH: int = 10       # assets per refresh (screen is frozen meanwhile, ~1-3 s each)
-
+FETCH_MAX_S: int = 40       # stop a batch after this long (slow network), the rest follows next time
+FREEZE_FACTOR: int = 5      # refresh interval is at least this x the measured freeze (screen live >= 80 %)

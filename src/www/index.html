@@ -9,12 +9,15 @@
 <!-- autocomplete/autocorrect/spellcheck off: phone keyboards don't learn or suggest what's typed here -->
 <form method=post action=/save id=f autocomplete=off>
 
+<section id=wifi>
 <h2>Wi-Fi</h2>
 <label>Network</label>
 <input name=ssid list=nets autocomplete=off autocorrect=off autocapitalize=off spellcheck=false>
 <datalist id=nets></datalist>
 <label>Password</label><input name=pw type=password autocomplete=new-password>
+</section>
 
+<section id=display>
 <h2>Display</h2>
 <label>Mode</label>
 <select name=mode>
@@ -38,14 +41,18 @@
 <div><label>Slide time (s)</label><input name=slide_s type=number min=3 inputmode=numeric></div>
 <div><label>Refresh every (s)</label><input name=fetch_s type=number min=60 inputmode=numeric></div>
 </div>
+</section>
 
+<section id=assets>
 <h2>Assets <span id=count></span></h2>
 <small>ISIN (best), ticker (e.g. AAPL) or WKN (German securities only, funds from e.g. Ireland
 need the ISIN). Quantity + buy price are optional, needed for returns.
 Enter the buy price in the display currency above.</small>
 <div id=rows></div>
 <button type=button class=sec id=add>+ Add asset</button>
+</section>
 
+<section id=security>
 <h2>Security</h2>
 <label>Password for this page on your network <span id=ppstate></span></label>
 <input name=pp type=password autocomplete=new-password>
@@ -53,6 +60,7 @@ Enter the buy price in the display currency above.</small>
 <label><input class=cb type=checkbox name=apnew> new setup Wi-Fi password (normally it never changes)</label>
 <p><small>Forgot the password? Press FLASH while the display shows 'Starting...' = setup mode
 without login. Hold FLASH for <span id=resets>10</span> s = factory reset.</small></p>
+</section>
 <button>Save</button>
 </form>
 
