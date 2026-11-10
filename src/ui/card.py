@@ -6,7 +6,7 @@ BIG = ("xl", "l", "m", "s")  # center value, largest first
 
 def card(ui, labels: list, value: str, unit: str, color: int,
          subs: list, page: tuple = (0, 1)) -> None:
-    """label / big value+unit / sub lines. subs = [(options, color, trend)], trend != 0 draws an arrow."""
+    """label / big value+unit / sub lines. subs = [(options, color, trend)], trend != 0 draws a green/red arrow."""
     d, f, gap = ui.d, ui.f, ui.gap
     dots = 10 if page[1] > 1 and d.height >= 100 and page[1] * 10 < d.width else 0
     room = d.width - 2 * ui.m
@@ -47,14 +47,14 @@ def card(ui, labels: list, value: str, unit: str, color: int,
         d.draw(uf, unit, x + sep, y + vf.height - uf.height, color, ui.bg)
     y += vf.height + gap
 
-    # sub lines, change lines get an up/down arrow
+    # sub lines, a trend adds an up/down arrow
     for opts, c, trend in subs:
         arrow = f.height * 5 // 8 if trend else 0
         aw = arrow * 7 // 4
         s = ui.fit(f, opts, room - aw)
         x = (d.width - f.width(s) - aw) // 2
         if arrow:
-            d.triangle(x + arrow * 5 // 8, y + (f.height - arrow) // 2, arrow, trend > 0, c)
+            d.triangle(x + arrow * 5 // 8, y + (f.height - arrow) // 2, arrow, trend > 0, ui.tone(trend))
         d.draw(f, s, x + aw, y, c, ui.bg)
         y += f.height + gap
 

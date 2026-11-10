@@ -13,5 +13,7 @@ button.sec{background:#1c1c1e;color:#fff;margin-top:6px}
 button:disabled{opacity:.4}
 button.x{width:32px;height:32px;padding:0;margin:0;border-radius:16px;background:#2c2c2e;color:#8e8e93;font-size:20px;line-height:32px}
 .cb{width:auto}
+.c{display:block;margin:6px 0}
+.c[hidden]{display:none}
 small,p{color:#8e8e93}
 .sym{color:#fff}

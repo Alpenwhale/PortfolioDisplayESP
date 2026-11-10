@@ -19,10 +19,9 @@
 
 <section id=display>
 <h2>Display</h2>
-<label>Mode</label>
-<select name=mode>
-<option value=slide>Slideshow<option value=port>Portfolio return<option value=single>Single asset (the first in the list)
-</select>
+<label class=c><input class=cb type=checkbox name=show_total> show total portfolio performance</label>
+<label class=c><input class=cb type=checkbox name=show_assets> show each asset in the slideshow</label>
+<label class=c><input class=cb type=checkbox name=single> show only the first asset (static, no slideshow)</label>
 <label>Show change over</label>
 <select name=period>
 <option value=1d>Day<option value=5d>Week<option value=ytd>Year to date<option value=max>All time
@@ -38,8 +37,11 @@
 <option value=native>No conversion (exchange currency)
 </select>
 <div class=g>
-<div><label>Slide time (s)</label><input name=slide_s type=number min=3 inputmode=numeric></div>
-<div><label>Refresh every (s)</label><input name=fetch_s type=number min=60 inputmode=numeric></div>
+<div><label>Asset slide time (s)</label><input name=slide_s type=number min=3 inputmode=numeric></div>
+<div><label>Total slide time (s)</label><input name=total_s type=number min=3 inputmode=numeric></div>
+</div>
+<div class=g>
+<div><label>Refresh prices every (s)</label><input name=fetch_s type=number min=60 inputmode=numeric></div>
 </div>
 </section>
 
@@ -56,8 +58,8 @@ Enter the buy price in the display currency above.</small>
 <h2>Security</h2>
 <label>Password for this page on your network <span id=ppstate></span></label>
 <input name=pp type=password autocomplete=new-password>
-<label id=ppdel hidden><input class=cb type=checkbox name=ppdel> remove password</label>
-<label><input class=cb type=checkbox name=apnew> new setup Wi-Fi password (normally it never changes)</label>
+<label class=c id=ppdel hidden><input class=cb type=checkbox name=ppdel> remove password</label>
+<label class=c><input class=cb type=checkbox name=apnew> new setup Wi-Fi password (normally it never changes)</label>
 <p><small>Forgot the password? Press FLASH while the display shows 'Starting...' = setup mode
 without login. Hold FLASH for <span id=resets>10</span> s = factory reset.</small></p>
 </section>
@@ -132,7 +134,8 @@ fetch('/cfg.json').then(r => r.json()).then(c => {
   max = c.max;
 
   // plain fields
-  for (const k of ['ssid', 'mode', 'period', 'numfmt', 'cur', 'slide_s', 'fetch_s']) f.elements[k].value = s[k];
+  for (const k of ['ssid', 'period', 'numfmt', 'cur', 'slide_s', 'total_s', 'fetch_s']) f.elements[k].value = s[k];
+  for (const k of ['show_total', 'show_assets', 'single']) f.elements[k].checked = s[k];
   f.pw.placeholder = c.pw ? 'saved - leave empty to keep' : '';
   for (const n of c.nets) $('#nets').append(new Option(n));
 

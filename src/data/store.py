@@ -16,13 +16,15 @@ SECRET = "/secret.bin"   # wifi pw, portal pw hash. wiped by factory reset
 APKEY = "/ap.key"        # setup wifi pw. once per flash, survives factory reset + deploys
 DEFAULTS = {
     "ssid": "",
-    "mode": "slide",   # slide | port | single
-    "single": 0,       # asset index for single mode
+    "show_total": 1,   # slideshow: portfolio total page
+    "show_assets": 1,  # slideshow: one page per asset
+    "single": 0,       # 1 = only the first asset, static (overrides the two above)
     "period": "1d",    # 1d | 5d | ytd | max, change shown next to the price
     "numfmt": "de",    # de: 1.234,56 € | en: €1,234.56
     "cur": "EUR",      # display currency, "native" = no conversion
-    "slide_s": 8,
-    "fetch_s": 300,
+    "slide_s": 8,      # seconds per asset page
+    "total_s": 8,      # seconds for the total page
+    "fetch_s": 300,    # price refresh interval
 }  # the asset list lives in data.assets (/assets.jsonl)
 
 
@@ -38,7 +40,7 @@ def load() -> dict:
             s.update(json.load(f))
     except (OSError, ValueError):
         pass
-    s.pop("items", None)  # pre-assets.jsonl layout
+    s.pop("mode", None)  # replaced by the show_* switches
     return s
 
 

@@ -125,6 +125,11 @@ class App:
         self.curs = [""]
         self.err = {}  # index -> last fetch error, rare
 
+        # slideshow: optional total page first, then the assets (or just the first one)
+        s = self.s
+        self.total = 0 if s["single"] or not n else s["show_total"]
+        self.pages = self.total + (min(n, 1) if s["single"] else n if s["show_assets"] or not self.total else 0)
+
         # prices written by core.fetch during the last warm boot
         from data import prices
         for i, p, b, ok, code, err in prices.each():
@@ -166,6 +171,10 @@ class App:
         print("refresh: soft reset")
         from core import reset
         reset.soft_reset()
+
+    def slide_ms(self) -> int:
+        """How long the current slide stays up."""
+        return self.s["total_s" if self.slide < self.total else "slide_s"] * 1000
 
     # --- called by portal / setup ---
 

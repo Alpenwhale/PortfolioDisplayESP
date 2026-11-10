@@ -11,7 +11,7 @@ import os
 from data import assets, store
 
 PENDING = "/pending.form"
-MODES = ("slide", "port", "single")
+SWITCHES = ("show_total", "show_assets", "single")
 PERIODS = ("1d", "5d", "ytd", "max")
 NUMFMTS = ("de", "en")
 CURRENCIES = ("EUR", "USD", "GBP", "CHF", "JPY", "native")
@@ -151,12 +151,16 @@ def save(app, read) -> None:
         store.new_ap_password()
 
     # display settings, only known values, numbers clamped
-    for key, allowed in (("mode", MODES), ("period", PERIODS), ("numfmt", NUMFMTS), ("cur", CURRENCIES)):
+    for key, allowed in (("period", PERIODS), ("numfmt", NUMFMTS), ("cur", CURRENCIES)):
         if g.get(key) in allowed:
             s[key] = g[key]
-    s["slide_s"] = max(3, min(3600, int(to_float(g.get("slide_s")) or 8)))
-    s["fetch_s"] = max(60, min(86400, int(to_float(g.get("fetch_s")) or 300)))
-    s["single"] = max(0, min(w.n - 1, int(to_float(g.get("single")) or 0)))
+    for key, low, high, default in (("slide_s", 3, 3600, 8), ("total_s", 3, 3600, 8),
+                                    ("fetch_s", 60, 86400, 300)):
+        s[key] = max(low, min(high, int(to_float(g.get(key)) or default)))
+
+    # checkboxes are only sent when ticked
+    for key in SWITCHES:
+        s[key] = 1 if g.get(key) else 0
 
     # persist (collect first, AES needs a few contiguous blocks)
     g = None

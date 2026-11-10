@@ -13,17 +13,17 @@ from core.app import later, due
 def thawed(app) -> None:
     """First new image after a refresh: measure the freeze, schedule the next refresh from it.
 
-    The configured interval runs from refresh to refresh (so it includes the reboot + fetch).
+    The interval runs from refresh to refresh (so it includes the reboot + fetch).
     Lower limit: FREEZE_FACTOR x the measured freeze, else a long asset list on a short
     interval would leave the screen frozen most of the time.
     """
     if app.t_refresh is None:
         return
     frozen = time.ticks_diff(time.ticks_ms(), app.t_refresh)
-    every = max(app.s["fetch_s"] * 1000, config.FREEZE_FACTOR * frozen)
-    app.next_fetch = time.ticks_add(app.t_refresh, every)
+    ms = max(app.s["fetch_s"] * 1000, config.FREEZE_FACTOR * frozen)
+    app.next_fetch = time.ticks_add(app.t_refresh, ms)
     app.t_refresh = None
-    print("frozen %d ms, next refresh every %d s" % (frozen, every // 1000))
+    print("frozen %d ms, next refresh every %d s" % (frozen, ms // 1000))
 
 
 def loop(app) -> None:
@@ -31,8 +31,9 @@ def loop(app) -> None:
     print("loop: assets", app.n, "ip", app.ip)
     app.listen()
     app.info_until = later(config.INFO_S * 1000) if app.show_info else 0
+    app.slide %= max(1, app.pages)
     app.next_fetch = later(app.s["fetch_s"] * 1000)
-    app.next_slide = later(app.s["slide_s"] * 1000)
+    app.next_slide = later(app.slide_ms())
 
     while True:
         app.serve()
@@ -53,9 +54,9 @@ def loop(app) -> None:
             app.info_until, app.dirty = 0, True
 
         # slideshow
-        if app.s["mode"] == "slide" and app.n > 1 and due(app.next_slide):
-            app.slide = (app.slide + 1) % app.n
-            app.next_slide = later(app.s["slide_s"] * 1000)
+        if app.pages > 1 and due(app.next_slide):
+            app.slide = (app.slide + 1) % app.pages
+            app.next_slide = later(app.slide_ms())
             app.dirty = True
 
         # redraw only on change, then free all drawing code again
@@ -65,7 +66,7 @@ def loop(app) -> None:
             screens.render(app)
             del screens
             app.release_ui()
-            print("draw", app.s["mode"], app.slide, "free", gc.mem_free())
+            print("draw", app.slide, "free", gc.mem_free())
             thawed(app)
         time.sleep_ms(30)
 
