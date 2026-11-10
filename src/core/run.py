@@ -10,17 +10,23 @@ import config
 from core.app import later, due
 
 
+def every(app, frozen: int = 0) -> int:
+    """Refresh interval in ms: the configured one, but at least one full slideshow pass
+    and FREEZE_FACTOR x the measured freeze (else the screen would be frozen most of the time)."""
+    s = app.s
+    show = (app.total * s["total_s"] + (app.pages - app.total) * s["slide_s"]) * 1000 if app.pages > 1 else 0
+    return max(s["fetch_s"] * 1000, show, config.FREEZE_FACTOR * frozen)
+
+
 def thawed(app) -> None:
     """First new image after a refresh: measure the freeze, schedule the next refresh from it.
 
     The interval runs from refresh to refresh (so it includes the reboot + fetch).
-    Lower limit: FREEZE_FACTOR x the measured freeze, else a long asset list on a short
-    interval would leave the screen frozen most of the time.
     """
     if app.t_refresh is None:
         return
     frozen = time.ticks_diff(time.ticks_ms(), app.t_refresh)
-    ms = max(app.s["fetch_s"] * 1000, config.FREEZE_FACTOR * frozen)
+    ms = every(app, frozen)
     app.next_fetch = time.ticks_add(app.t_refresh, ms)
     app.t_refresh = None
     print("frozen %d ms, next refresh every %d s" % (frozen, ms // 1000))
@@ -32,7 +38,7 @@ def loop(app) -> None:
     app.listen()
     app.info_until = later(config.INFO_S * 1000) if app.show_info else 0
     app.slide %= max(1, app.pages)
-    app.next_fetch = later(app.s["fetch_s"] * 1000)
+    app.next_fetch = later(every(app))
     app.next_slide = later(app.slide_ms())
 
     while True:
