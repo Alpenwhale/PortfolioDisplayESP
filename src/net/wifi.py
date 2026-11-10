@@ -35,8 +35,3 @@ def ap(ssid: str, pw: str) -> str:
     # station stays on for the network scan in the portal
     network.WLAN(network.STA_IF).active(True)
     return a.ifconfig()[0]
-
-
-def connected() -> bool:
-    """Client link up?"""
-    return network.WLAN(network.STA_IF).isconnected()

@@ -93,11 +93,3 @@ def update(i: int, **kv) -> None:
         w.abort()
         raise
     w.commit()
-
-
-def remove_all() -> None:
-    """Factory reset."""
-    try:
-        os.remove(PATH)
-    except OSError:
-        pass
