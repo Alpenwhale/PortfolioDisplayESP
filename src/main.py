@@ -4,6 +4,9 @@ Warm boot (refresh soft reset, marked in RTC memory): fetch prices first with an
 the display isn't touched and keeps its image. Cold boot: normal start, see core.boot.
 Any crash ends in a chip reset instead of a dead screen at the REPL.
 """
+__author__ = "Alpenwhale"
+__license__ = "PUNCL-1.0, personal and non-commercial use only, see LICENSE"
+
 import machine
 import sys
 import time

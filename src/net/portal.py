@@ -66,7 +66,8 @@ def authed(app, hdr: dict) -> bool:
 
 def head(cl, status: str, ctype: str = "text/plain", extra: str = "") -> None:
     """Status line + headers."""
-    cl.write("HTTP/1.0 %s\r\nContent-Type: %s\r\n%sConnection: close\r\n\r\n" % (status, ctype, extra))
+    cl.write("HTTP/1.0 %s\r\nServer: PortfolioDisplay (Alpenwhale, PUNCL-1.0)\r\nContent-Type: %s\r\n%sConnection: close\r\n\r\n"
+             % (status, ctype, extra))
 
 
 def send_file(cl, path: str) -> None:

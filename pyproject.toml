@@ -1,7 +1,9 @@
 [project]
 name = "portfoliodisplay"
 version = "0.1.0"
-description = "Portfolio ticker on ESP8266 + TFT, MicroPython"
+authors = [{ name = "Alpenwhale" }]
+license = { file = "LICENSE" }
+description = "Portfolio ticker on ESP8266 + display, MicroPython"
 requires-python = ">=3.12,<3.15"  # 3.15: no pyyaml wheels yet
 dependencies = []
 
