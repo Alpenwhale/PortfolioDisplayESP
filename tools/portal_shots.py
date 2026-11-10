@@ -8,7 +8,9 @@ Whole pages (1_..4_) plus one shot per form section (wifi, display, assets, secu
 import json
 import shutil
 import subprocess
+import tempfile
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -23,8 +25,8 @@ BROWSERS = (r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
             r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
             r"C:\Program Files\Google\Chrome\Application\chrome.exe", "chromium", "google-chrome")
 
-BASE = {"ssid": "", "mode": "slide", "single": 0, "period": "1d", "numfmt": "de", "cur": "EUR",
-        "slide_s": 8, "fetch_s": 300}
+BASE = {"ssid": "", "show_total": 1, "show_assets": 1, "single": 0, "period": "1d", "numfmt": "de",
+        "cur": "EUR", "slide_s": 8, "total_s": 8, "fetch_s": 300, "bright": 100}
 ASSETS = [
     {"id": "IE00B4L5Y983", "ex": ".DE", "name": "MSCI World", "qty": 10, "buy": 80.5,
      "sym": "EUNL.DE", "yname": "iShares Core MSCI World"},
@@ -33,7 +35,7 @@ ASSETS = [
 ]
 NETS = ["FRITZ!Box 7590 XY", "Home", "Neighbour-5G"]
 
-CONFIGURED = {"s": dict(BASE, ssid="Home", mode="port", period="ytd"), "items": ASSETS,
+CONFIGURED = {"s": dict(BASE, ssid="Home", period="ytd", total_s=15), "items": ASSETS,
               "pw": True, "pp": True, "max": 50, "reset_s": 10, "nets": NETS}
 
 # name -> (path, cfg.json). "?only=<section>" shows just that part of the form (for the field tables)
@@ -86,9 +88,18 @@ def browser() -> str:
     raise SystemExit("no Edge/Chrome found")
 
 
-def trim(p: Path) -> None:
+def trim(raw: Path, p: Path) -> None:
     """Cut the empty black area below the content."""
-    img = Image.open(p).convert("RGB")
+
+    # the browser returns before its file is complete: wait until the size stops changing
+    size = -1
+    for _ in range(60):
+        time.sleep(0.5)
+        now = raw.stat().st_size if raw.exists() else -1
+        if now > 0 and now == size:
+            break
+        size = now
+    img = Image.open(raw).convert("RGB")
     w, h = img.size
     px = img.load()
     bottom = h
@@ -103,16 +114,19 @@ def main() -> None:
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     exe = browser()
+
+    # raw shots go to a temp dir: the browser sometimes rewrites its file after it exited
+    tmp = Path(tempfile.mkdtemp())
     try:
         for name, (path, cfg) in VIEWS.items():
             STATE["cfg"] = cfg
             out = OUT / (name + ".png")
             subprocess.run([exe, "--headless=new", "--disable-gpu", "--hide-scrollbars",
                             "--force-device-scale-factor=1", "--virtual-time-budget=1500",
-                            "--window-size=%d,4000" % WIDTH, "--screenshot=%s" % out,
+                            "--window-size=%d,4000" % WIDTH, "--screenshot=%s" % (tmp / out.name),
                             "http://127.0.0.1:%d%s" % (PORT, path)],
                            check=True, capture_output=True, timeout=60)
-            trim(out)
+            trim(tmp / out.name, out)
             print(name, Image.open(out).size)
     finally:
         srv.shutdown()

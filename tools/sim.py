@@ -97,7 +97,7 @@ class SimDisplay(Display):
                     self.px[X, Y] = f if on else b
 
     def save(self, name: str) -> None:
-        """sim_out/<WxH>/<name>.png, upscaled so pixels stay visible."""
+        """docs/img/<WxH>/<name>.png, upscaled so pixels stay visible."""
         d = OUT / ("%dx%d" % (self.width, self.height))
         d.mkdir(parents=True, exist_ok=True)
         k = 4 if self.width <= 128 else 2
@@ -121,10 +121,13 @@ NAN = float("nan")
 class FakeApp:
     """Same fields core.screens reads from core.app.App: settings, float arrays, asset()."""
 
-    def __init__(self, ui, mode: str, slide: int = 0, period: str = "1d", numfmt: str = "de") -> None:
+    def __init__(self, ui, slide: int = 0, period: str = "1d", numfmt: str = "de", single: bool = False) -> None:
         self.ui, self.slide, self.ip = ui, slide, "192.168.178.123"
-        self.s = {"mode": mode, "single": 0, "period": period, "numfmt": numfmt}
+        self.s = {"period": period, "numfmt": numfmt}
         self.n = len(ITEMS)
+
+        # slide 0 = portfolio total, then the assets; single = first asset only
+        self.total, self.pages = (0, 1) if single else (1, self.n + 1)
         self.qty = [r.get("qty") or 0.0 for r, _ in ITEMS]
         self.buy = [r.get("buy") or 0.0 for r, _ in ITEMS]
         self.price = [q[0] if isinstance(q, tuple) else NAN for _, q in ITEMS]
@@ -180,13 +183,14 @@ def main() -> None:
                                                                  "192.168.4.1", "no Wi-Fi set"))
         for p in range(2):
             shot("info%d" % p, lambda u, p=p: setup.info_page(u, p, "192.168.178.123"))
+        shot("total", lambda u: screens.render(FakeApp(u)))
+        shot("total_en", lambda u: screens.render(FakeApp(u, numfmt="en")))
         for i in range(len(ITEMS)):
-            shot("slide%d" % i, lambda u, i=i: screens.render(FakeApp(u, "slide", i)))
-        shot("slide0_ytd", lambda u: screens.render(FakeApp(u, "slide", 0, "ytd")))
-        shot("portfolio", lambda u: screens.render(FakeApp(u, "port")))
-        shot("portfolio_en", lambda u: screens.render(FakeApp(u, "port", numfmt="en")))
-        shot("slide1_en", lambda u: screens.render(FakeApp(u, "slide", 1, numfmt="en")))
-        shot("single", lambda u: screens.render(FakeApp(u, "single")))
+            shot("asset%d" % i, lambda u, i=i: screens.render(FakeApp(u, i + 1)))
+        shot("asset0_ytd", lambda u: screens.render(FakeApp(u, 1, "ytd")))
+        shot("asset1_en", lambda u: screens.render(FakeApp(u, 2, numfmt="en")))
+        shot("single", lambda u: screens.render(FakeApp(u, single=True)))
+        shot("dimmed", lambda u: screens.render(FakeApp(UI(u.d, 40), 1)))
     check_qr()
     print("pngs in", OUT)
 
