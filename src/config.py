@@ -21,6 +21,7 @@ TFT_MISO: int = 12      # D6, only diag reads it
 TFT_CS = None           # None = tied low on module
 TFT_DC: int = 4         # D2
 TFT_RST: int = 5        # D1
+TFT_BL = None           # backlight on a PWM pin (e.g. 2 = D4) = real dimming. None = BLK on 3V3, colors get darkened
 
 # --- SSD1306 OLED (I2C), 0.96" = 128x64 ---
 OLED_SCL: int = 5       # D1

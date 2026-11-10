@@ -12,9 +12,9 @@ class TFT(Display):
     def __init__(self, spi: SPI, dc: Pin, rst: Pin, cs: Pin | None = None,
                  width: int = 240, height: int = 320, x_offset: int = 0, y_offset: int = 0,
                  rotation: int = 0, controller: str = "ili9341",
-                 invert: bool = False, bgr: bool = True, init: bool = True) -> None:
+                 invert: bool = False, bgr: bool = True, init: bool = True, bl=None) -> None:
         """Reset + init (init=False: just attach, panel keeps its image). width/height = native portrait."""
-        self.spi, self.dc, self.rst = spi, dc, rst
+        self.spi, self.dc, self.rst, self.bl = spi, dc, rst, bl
         self.cs = cs if cs is not None else (lambda v: None)
 
         # logical size + ram offsets follow the rotation
@@ -60,6 +60,14 @@ class TFT(Display):
         self.dc(1)
         self.spi.write(buf)
         self.cs(1)
+
+    def brightness(self, pct: int) -> bool:
+        """Backlight PWM, only if BLK hangs on a pin (config.TFT_BL)."""
+        if self.bl is None:
+            return False
+        from machine import PWM
+        PWM(Pin(self.bl), freq=1000, duty=pct * 1023 // 100)
+        return True
 
     def rgb(self, r: int, g: int, b: int) -> int:
         """8-bit RGB to RGB565."""

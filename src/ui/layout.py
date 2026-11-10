@@ -9,16 +9,17 @@ from ui import font
 class UI:
     """Draws whole screens. Content comes in as plain strings."""
 
-    def __init__(self, d) -> None:
-        """Palette + size class for this display."""
+    def __init__(self, d, bright: int = 100) -> None:
+        """Palette + size class for this display. bright < 100 darkens the colors (no dimmable backlight)."""
         self.d = d
 
         # palette, mono displays map it to on/off
+        k = bright
         self.bg = d.rgb(0, 0, 0)
-        self.fg = d.rgb(255, 255, 255)
-        self.dim = d.rgb(140, 140, 145)
-        self.up = d.rgb(0, 200, 110)
-        self.down = d.rgb(255, 80, 80)
+        self.fg = d.rgb(255 * k // 100, 255 * k // 100, 255 * k // 100)
+        self.dim = d.rgb(140 * k // 100, 140 * k // 100, 145 * k // 100)
+        self.up = d.rgb(0, 200 * k // 100, 110 * k // 100)
+        self.down = d.rgb(255 * k // 100, 80 * k // 100, 80 * k // 100)
 
         # size class drives fonts + spacing
         self.small = d.width < 200 or d.height < 160

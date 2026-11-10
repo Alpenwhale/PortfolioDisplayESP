@@ -25,6 +25,7 @@ DEFAULTS = {
     "slide_s": 8,      # seconds per asset page
     "total_s": 8,      # seconds for the total page
     "fetch_s": 300,    # price refresh interval
+    "bright": 100,     # percent
 }  # the asset list lives in data.assets (/assets.jsonl)
 
 

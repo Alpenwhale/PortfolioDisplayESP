@@ -29,6 +29,11 @@ class OLED(Display):
         if fg:
             self.dev.blit(framebuf.FrameBuffer(buf, w, h, framebuf.MONO_HLSB), x, y, 0)
 
+    def brightness(self, pct: int) -> bool:
+        """OLED contrast."""
+        self.dev.contrast(pct * 255 // 100)
+        return True
+
     def show(self) -> None:
         """Push buffer to the panel."""
         self.dev.show()

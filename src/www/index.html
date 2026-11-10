@@ -42,6 +42,7 @@
 </div>
 <div class=g>
 <div><label>Refresh prices every (s)</label><input name=fetch_s type=number min=60 inputmode=numeric></div>
+<div><label>Brightness (%)</label><input name=bright type=number min=10 max=100 step=10 inputmode=numeric></div>
 </div>
 <small>Prices refresh at the earliest after every slide was shown once.</small>
 </section>
@@ -135,7 +136,7 @@ fetch('/cfg.json').then(r => r.json()).then(c => {
   max = c.max;
 
   // plain fields
-  for (const k of ['ssid', 'period', 'numfmt', 'cur', 'slide_s', 'total_s', 'fetch_s']) f.elements[k].value = s[k];
+  for (const k of ['ssid', 'period', 'numfmt', 'cur', 'slide_s', 'total_s', 'fetch_s', 'bright']) f.elements[k].value = s[k];
   for (const k of ['show_total', 'show_assets', 'single']) f.elements[k].checked = s[k];
   f.pw.placeholder = c.pw ? 'saved - leave empty to keep' : '';
   for (const n of c.nets) $('#nets').append(new Option(n));

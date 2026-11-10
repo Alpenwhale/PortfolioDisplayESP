@@ -21,6 +21,10 @@ class Display:
         """Draw a MONO_HLSB bitmap, 1 = fg, 0 = bg."""
         raise NotImplementedError
 
+    def brightness(self, pct: int) -> bool:
+        """Dim the panel itself. False = can't, the ui darkens its colors instead."""
+        return False
+
     def show(self) -> None:
         """Flush buffer. No-op for unbuffered displays."""
 

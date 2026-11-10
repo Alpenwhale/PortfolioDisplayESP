@@ -31,7 +31,7 @@ def create_display(cfg, init: bool = True) -> Display:
                    width=cfg.TFT_WIDTH, height=cfg.TFT_HEIGHT,
                    x_offset=cfg.TFT_X_OFFSET, y_offset=cfg.TFT_Y_OFFSET,
                    rotation=cfg.TFT_ROTATION, controller=cfg.TFT_CONTROLLER,
-                   invert=cfg.TFT_INVERT, bgr=cfg.TFT_BGR, init=init)
+                   invert=cfg.TFT_INVERT, bgr=cfg.TFT_BGR, init=init, bl=cfg.TFT_BL)
 
     # I2C OLED (0.96" 128x64)
     if cfg.DISPLAY == "ssd1306":

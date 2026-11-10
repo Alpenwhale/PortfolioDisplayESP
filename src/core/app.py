@@ -56,6 +56,9 @@ class App:
         del store
         drop("data.store")
 
+        # panel dims itself (OLED contrast, TFT backlight pin), else the ui darkens its colors
+        self.bright = 100 if d.brightness(self.s["bright"]) else self.s["bright"]
+
         # assets: numbers only, records stay on flash; prices from the last fetch phase
         self.load_assets()
 
@@ -87,7 +90,7 @@ class App:
         """Layout helper, created on first use after each release_ui()."""
         if self._ui is None:
             from ui.layout import UI
-            self._ui = UI(self.d)
+            self._ui = UI(self.d, self.bright)
         return self._ui
 
     def release_ui(self) -> None:
