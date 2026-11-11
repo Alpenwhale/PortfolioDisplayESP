@@ -125,7 +125,7 @@ Limits per refresh: `FETCH_BATCH` assets, `FETCH_MAX_S` seconds, 10 s per reques
 | Year to date | `ytd` / `1mo` | close at the end of last year |
 | All time | `max` / `3mo` | first open in the history |
 
-- Price and base are converted with today's rate, so the percentage shows the price move only.
+- Price and base are converted with today's rate, so the percentage shows the price move only. Rates are fetched after the batch (`fetch._late_fx`): right after a quote there isn't enough RAM for a second TLS handshake.
 - ISINs are resolved through the Yahoo search and cached in the asset record (`sym`, `yname`).
 - German WKNs become ISINs: `DE000` + WKN + check digit.
 
@@ -134,10 +134,10 @@ Limits per refresh: `FETCH_BATCH` assets, `FETCH_MAX_S` seconds, 10 s per reques
 `screens.py` turns numbers into text, `card.py` places it.
 
 - Headline: change in percent over the period, in the biggest font that fits.
-- Sub lines: price with trend arrow, change in money, return since purchase. Lines that don't fit are dropped.
+- Sub lines: price with trend arrow, change in money, own performance since purchase (% or amount, optional). Lines that don't fit are dropped.
 - Each line comes as a list of variants from long to short, the first one that fits is used.
 - Two size classes: small (width < 200 or height < 160) and big. Nothing ever scrolls.
-- The portfolio total treats all assets with a quantity as one position.
+- The portfolio total treats all assets with a quantity as one position, the own performance only those with a buy price. Left-out assets (no values, no exchange rate) put a `*` behind the own performance.
 - Brightness: OLED contrast or TFT backlight pin if available, else the palette is darkened.
 
 ## Portal
@@ -155,7 +155,7 @@ The form is a static file. A script loads `/cfg.json`, fills the fields and clon
 
 | File | Content | Factory reset |
 |---|---|---|
-| `/settings.json` | `ssid`, `show_total`, `show_assets`, `single`, `period`, `numfmt`, `cur`, `slide_s`, `total_s`, `fetch_s`, `bright` | removed |
+| `/settings.json` | `ssid`, `show_total`, `show_assets`, `single`, `show_gain`, `gain`, `period`, `numfmt`, `cur`, `slide_s`, `total_s`, `fetch_s`, `bright` | removed |
 | `/assets.jsonl` | per line: `id`, `ex`, `name`, `qty`, `buy`, `sym`, `yname` | removed |
 | `/prices.bin` | per asset: price, base (f32), valid flag, currency, last error | removed |
 | `/secret.bin` | AES: Wi-Fi password, salted hash of the page password | removed |

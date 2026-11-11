@@ -50,6 +50,8 @@ Every save restarts the device (about 15 s). If the phone stays in the same Wi-F
 | show total portfolio performance | adds a page with the total of all assets that have a quantity |
 | show each asset in the slideshow | one page per asset |
 | show only the first asset | static, no slideshow. Overrides the two switches above |
+| show own performance since purchase | adds the "Since purchase" line (default on) |
+| Own performance as | percent or amount in money |
 | Show change over | day / week / year to date / all time. Applies to every page |
 | Number format | German `1.234,56 €` (default) or English `€1,234.56` |
 | Currency | display currency (default EUR), converted at today's rate |
@@ -66,7 +68,7 @@ Every save restarts the device (about 15 s). If the phone stays in the same Wi-F
 | Identifier | `IE00B4L5Y983`, `AAPL`, `716460` | ISIN works best. WKN only for German securities. After the first refresh the resolved symbol is shown, e.g. `→ EUNL.DE` |
 | Exchange | Xetra, NYSE/Nasdaq, London, ... | `Automatic` prefers Xetra |
 | Description | `MSCI World` | optional, default is the name from Yahoo |
-| Quantity / Buy price | `10` / `80,50` | optional. Quantity is needed for the total page, the buy price for "Since purchase". Buy price in the display currency |
+| Quantity / Buy price | `10` / `80,50` | optional. Quantity is needed for the total page and the amount, the buy price for "Since purchase". Buy price in the display currency |
 
 **+ Add asset** adds a row, **×** removes it. Comma and point both work in numbers.
 
@@ -110,13 +112,25 @@ A factory reset clears Wi-Fi, assets and the page password. The setup Wi-Fi pass
 
 ## A5. What the display shows
 
-Every page has the same layout: name, change in percent over the chosen period (green = up, red = down), below it the price with a trend arrow. The TFT also shows the change in money and, with a buy price, the return since purchase. Dots at the bottom mark the slideshow position.
+Asset and total page look the same:
+
+1. name (or `Portfolio`)
+2. change in percent over the chosen period, green = up, red = down
+3. price (total: value of all holdings) with a trend arrow
+4. change in money over the period
+5. own performance since purchase, in percent or as amount (can be switched off)
+
+The OLED only fits lines 1-3. Dots at the bottom mark the slideshow position.
+
+The total page adds up all assets that have a quantity; the own performance uses those that also have a buy price. Assets without these values are left out, and a `*` behind the own performance shows that something was left out.
 
 | | 0.96" OLED | 2.8" TFT |
 |---|---|---|
 | asset, up | <img src="img/128x64/asset0.png" width="256"> | <img src="img/320x240/asset0.png" width="320"> |
 | asset, down | <img src="img/128x64/asset1.png" width="256"> | <img src="img/320x240/asset1.png" width="320"> |
 | portfolio total | <img src="img/128x64/total.png" width="256"> | <img src="img/320x240/total.png" width="320"> |
+| own performance as amount | | <img src="img/320x240/total_abs.png" width="320"> |
+| own performance off | | <img src="img/320x240/asset0_nogain.png" width="320"> |
 | only the first asset | <img src="img/128x64/single.png" width="256"> | <img src="img/320x240/single.png" width="320"> |
 | English number format | <img src="img/128x64/asset1_en.png" width="256"> | <img src="img/320x240/asset1_en.png" width="320"> |
 | brightness 40 % | | <img src="img/320x240/dimmed.png" width="320"> |

@@ -2,11 +2,18 @@
 
 A small desk display for your stocks, ETFs and funds. MicroPython on an ESP8266 with a 2.8" TFT or a 0.96" OLED, configured from your phone.
 
-<img src="docs/img/320x240/asset0.png" width="320"> <img src="docs/img/128x64/asset0.png" width="256">
+| Your portfolio | One asset | Down day |
+|---|---|---|
+| <img src="docs/img/320x240/total.png" width="280"> | <img src="docs/img/320x240/asset0.png" width="280"> | <img src="docs/img/320x240/asset1.png" width="280"> |
+
+| 0.96" OLED | Setup by QR code | Settings from the phone |
+|---|---|---|
+| <img src="docs/img/128x64/asset0.png" width="280"> | <img src="docs/img/320x240/setup0.png" width="280"> | <img src="docs/img/portal/display.png" width="200"> |
 
 ## Features
 
 - Change in percent as the headline, price below, green/red with a trend arrow
+- Own performance since purchase in percent or money, for every asset and the whole portfolio
 - Slideshow over your assets, optional portfolio total page, or one static asset
 - Change over day, week, year to date or all time
 - ISIN, ticker or German WKN; Xetra and the common international exchanges
