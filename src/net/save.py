@@ -155,7 +155,7 @@ def save(app, read) -> None:
     for key, allowed in (("period", PERIODS), ("numfmt", NUMFMTS), ("cur", CURRENCIES), ("gain", GAINS)):
         if g.get(key) in allowed:
             s[key] = g[key]
-    for key, low, high, default in (("slide_s", 3, 3600, 8), ("total_s", 3, 3600, 8),
+    for key, low, high, default in (("slide_s", 3, 3600, 7), ("total_s", 3, 3600, 240),
                                     ("fetch_s", 60, 86400, 300), ("bright", 10, 100, 100)):
         s[key] = max(low, min(high, int(to_float(g.get(key)) or default)))
 

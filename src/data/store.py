@@ -24,8 +24,8 @@ DEFAULTS = {
     "period": "1d",    # 1d | 5d | ytd | max, change shown next to the price
     "numfmt": "de",    # de: 1.234,56 € | en: €1,234.56
     "cur": "EUR",      # display currency, "native" = no conversion
-    "slide_s": 8,      # seconds per asset page
-    "total_s": 8,      # seconds for the total page
+    "slide_s": 7,      # seconds per asset page
+    "total_s": 240,    # seconds for the total page
     "fetch_s": 300,    # price refresh interval
     "bright": 100,     # percent
 }  # the asset list lives in data.assets (/assets.jsonl)

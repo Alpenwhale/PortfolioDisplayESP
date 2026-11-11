@@ -55,7 +55,7 @@ Every save restarts the device (about 15 s). If the phone stays in the same Wi-F
 | Show change over | day / week / year to date / all time. Applies to every page |
 | Number format | German `1.234,56 €` (default) or English `€1,234.56` |
 | Currency | display currency (default EUR), converted at today's rate |
-| Asset slide time / Total slide time | seconds per asset page / for the total page |
+| Asset slide time / Total slide time | seconds per asset page / for the total page (default 7 / 240) |
 | Refresh prices every | seconds, at least 60 |
 | Brightness | 10-100 % |
 
