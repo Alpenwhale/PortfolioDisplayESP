@@ -34,32 +34,47 @@ def _need_ram() -> None:
         raise OSError("low RAM %d" % gc.mem_free())
 
 
-def _convert(q: dict, want: str, fx: dict) -> dict:
-    """Scale p/b into the display currency. FX failure -> keep native."""
+def _convert(q: dict, want: str, fx: dict) -> bool:
+    """Scale p/b into the display currency with a known rate. False = rate still missing (see _late_fx)."""
 
     # london quotes in pence
     if q["cur"] in ("GBp", "GBX"):
         q["p"], q["b"], q["cur"] = q["p"] / 100, q["b"] / 100, "GBP"
     if want == "native" or not q["cur"] or q["cur"] == want:
-        return q
-
-    # one rate per currency per batch
-    try:
-        rate = fx.get(q["cur"])
-        if rate is None:
-            from net import quotes
-            _need_ram()
-            rate = fx[q["cur"]] = quotes.fx(q["cur"], want)
-    except Exception as e:
-        print("fx", q["cur"], want, repr(e))
-        return q
-    finally:
-        _drop("net.quotes")
+        return True
+    rate = fx.get(q["cur"])
+    if rate is None:
+        return False
     q["p"], q["b"], q["cur"] = q["p"] * rate, q["b"] * rate, want
-    return q
+    return True
 
 
-def _one(i: int, period: str, want: str, fx: dict, retry: bool) -> None:
+def _late_fx(late: list, want: str, fx: dict) -> None:
+    """Convert records stored in their native currency.
+
+    Runs after the batch: inside _one the asset modules + quote leave too little RAM for a
+    second TLS handshake, here only data.prices is loaded. One rate per currency per batch.
+    """
+    from data import prices
+    for i, cur in late:
+        try:
+            rate = fx.get(cur)
+            if rate is None:
+                from net import quotes
+                _need_ram()
+                rate = fx[cur] = quotes.fx(cur, want)
+        except Exception as e:
+            print("fx", cur, want, repr(e))
+            continue
+        finally:
+            _drop("net.quotes")
+        r = prices.read(i)
+        prices.write(i, r[0] * rate, r[1] * rate, r[2], want, r[4])
+    del prices
+    _drop("data.prices")
+
+
+def _one(i: int, period: str, want: str, fx: dict, retry: bool, late: list) -> None:
     """Resolve (once) + quote asset i into its prices.bin record. Keeps the last good price on errors."""
     from data import assets, prices
     rec = assets.read(i)
@@ -89,7 +104,8 @@ def _one(i: int, period: str, want: str, fx: dict, retry: bool) -> None:
         q = quotes.quote(rec["sym"], period)
         del quotes
         _drop("net.quotes")
-        q = _convert(q, want, fx)
+        if not _convert(q, want, fx):
+            late.append((i, q["cur"]))
         prices.write(i, q["p"], q["b"], 1, q["cur"], "")
         if not rec.get("yname") and q["n"]:
             assets.update(i, yname=q["n"].split("  ")[0].strip())
@@ -139,17 +155,18 @@ def run(state: dict) -> dict:
     print("fetch phase: %d of %d assets from #%d, free %d" % (count, n, start, gc.mem_free()))
 
     # the screen is frozen while this runs, so the whole batch has a time budget
-    fx = {}
+    fx, late = {}, []
     t0 = time.ticks_ms()
     done = 0
     retry = state.get("c", 0) % RETRY_EVERY == 0
     state["c"] = state.get("c", 0) + 1
     for k in range(count):
-        _one((start + k) % n, period, want, fx, retry)
+        _one((start + k) % n, period, want, fx, retry, late)
         _drop("data.assets", "data.prices")
         done += 1
         if time.ticks_diff(time.ticks_ms(), t0) > config.FETCH_MAX_S * 1000:
             print("fetch phase: time budget used up")
             break
+    _late_fx(late, want, fx)
     state["o"] = (start + done) % n
     return state
