@@ -11,7 +11,7 @@ import os
 from data import assets, store
 
 PENDING = "/pending.form"
-SWITCHES = ("show_total", "show_assets", "single", "show_gain")
+SWITCHES = ("show_total", "show_assets", "single", "show_gain", "show_value")
 PERIODS = ("1d", "5d", "ytd", "max")
 NUMFMTS = ("de", "en")
 CURRENCIES = ("EUR", "USD", "GBP", "CHF", "JPY", "native")

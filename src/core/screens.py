@@ -44,13 +44,17 @@ def _since(app, gain: float, cost: float, code: str, dec: int, partial: bool):
 
 def _card(app, labels: list, ch: float, start: float, worth: str, gain: str, since, page: tuple,
           extra=None) -> None:
-    """Shared layout: headline = change in % over the period, value with arrow, change in money, own performance."""
+    """Shared layout: headline = change in % over the period, value with arrow, change in money, own performance.
+
+    worth None = value line hidden, the trend arrow moves to the change line.
+    """
     u = app.ui
     lbl = PERIOD.get(app.s["period"], "")
 
-    # small screens only fit one line, so the period label rides along with the value
-    subs = [([worth + " " + lbl, worth] if u.small else [worth], u.fg, ch),
-            ([gain + " " + lbl, gain], u.tone(ch), 0)]
+    # small screens only fit one line, so the period label rides along with the first one
+    subs = [([gain + " " + lbl, gain], u.tone(ch), 0 if worth else ch)]
+    if worth:
+        subs.insert(0, ([worth + " " + lbl, worth] if u.small else [worth], u.fg, ch))
     if since:
         subs.append(since)
     if extra:
@@ -120,4 +124,5 @@ def portfolio(app) -> None:
     ch = value - start
     since = _since(app, paid - cost, cost, code, 2, partial)
     extra = (["%d price(s) missing" % missing], u.dim, 0) if missing else None
-    _card(app, ["Portfolio"], ch, start, money_str(value, code), money_str(ch, code, 2, True), since, page, extra)
+    worth = money_str(value, code) if app.s["show_value"] else None
+    _card(app, ["Portfolio"], ch, start, worth, money_str(ch, code, 2, True), since, page, extra)

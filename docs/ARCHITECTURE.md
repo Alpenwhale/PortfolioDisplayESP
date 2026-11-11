@@ -155,7 +155,7 @@ The form is a static file. A script loads `/cfg.json`, fills the fields and clon
 
 | File | Content | Factory reset |
 |---|---|---|
-| `/settings.json` | `ssid`, `show_total`, `show_assets`, `single`, `show_gain`, `gain`, `period`, `numfmt`, `cur`, `slide_s`, `total_s`, `fetch_s`, `bright` | removed |
+| `/settings.json` | `ssid`, `show_total`, `show_assets`, `single`, `show_gain`, `gain`, `show_value`, `period`, `numfmt`, `cur`, `slide_s`, `total_s`, `fetch_s`, `bright` | removed |
 | `/assets.jsonl` | per line: `id`, `ex`, `name`, `qty`, `buy`, `sym`, `yname` | removed |
 | `/prices.bin` | per asset: price, base (f32), valid flag, currency, last error | removed |
 | `/secret.bin` | AES: Wi-Fi password, salted hash of the page password | removed |

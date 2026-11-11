@@ -21,6 +21,7 @@
 <section id=display>
 <h2>Display</h2>
 <label class=c><input class=cb type=checkbox name=show_total> show total portfolio performance</label>
+<label class=c><input class=cb type=checkbox name=show_value> show the total portfolio value</label>
 <label class=c><input class=cb type=checkbox name=show_assets> show each asset in the slideshow</label>
 <label class=c><input class=cb type=checkbox name=single> show only the first asset (static, no slideshow)</label>
 <label class=c><input class=cb type=checkbox name=show_gain> show own performance since purchase</label>
@@ -182,7 +183,7 @@ function fill(c) {
 
   // plain fields
   for (const k of ['ssid', 'period', 'numfmt', 'cur', 'gain', 'slide_s', 'total_s', 'fetch_s', 'bright']) f.elements[k].value = s[k];
-  for (const k of ['show_total', 'show_assets', 'single', 'show_gain']) f.elements[k].checked = s[k];
+  for (const k of ['show_total', 'show_assets', 'single', 'show_gain', 'show_value']) f.elements[k].checked = s[k];
   f.pw.placeholder = c.pw ? 'saved - leave empty to keep' : '';
   for (const n of c.nets) $('#nets').append(new Option(n));
 
