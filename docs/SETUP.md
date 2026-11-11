@@ -48,6 +48,7 @@ Every save restarts the device (about 15 s). If the phone stays in the same Wi-F
 | Field | Meaning |
 |---|---|
 | show total portfolio performance | adds a page with the total of all assets that have a quantity |
+| show the total portfolio value | value line on the total page (default on) |
 | show each asset in the slideshow | one page per asset |
 | show only the first asset | static, no slideshow. Overrides the two switches above |
 | show own performance since purchase | adds the "Since purchase" line (default on) |
@@ -68,7 +69,7 @@ Every save restarts the device (about 15 s). If the phone stays in the same Wi-F
 | Identifier | `IE00B4L5Y983`, `AAPL`, `716460` | ISIN works best. WKN only for German securities. After the first refresh the resolved symbol is shown, e.g. `→ EUNL.DE` |
 | Exchange | Xetra, NYSE/Nasdaq, London, ... | `Automatic` prefers Xetra |
 | Description | `MSCI World` | optional, default is the name from Yahoo |
-| Quantity / Buy price | `10` / `80,50` | optional. Quantity is needed for the total page and the amount, the buy price for "Since purchase". Buy price in the display currency |
+| Quantity / Buy price | `10` / `80,50` | optional. Quantity is needed for the total page and the amount, the buy price for "Since purchase". Buy price in the display currency. Empty or `0` = not set |
 
 **+ Add asset** adds a row, **×** removes it. Comma and point both work in numbers.
 
@@ -116,7 +117,7 @@ Asset and total page look the same:
 
 1. name (or `Portfolio`)
 2. change in percent over the chosen period, green = up, red = down
-3. price (total: value of all holdings) with a trend arrow
+3. price (total: value of all holdings, can be switched off) with a trend arrow
 4. change in money over the period
 5. own performance since purchase, in percent or as amount (can be switched off)
 
@@ -131,6 +132,7 @@ The total page adds up all assets that have a quantity; the own performance uses
 | portfolio total | <img src="img/128x64/total.png" width="256"> | <img src="img/320x240/total.png" width="320"> |
 | own performance as amount | | <img src="img/320x240/total_abs.png" width="320"> |
 | own performance off | | <img src="img/320x240/asset0_nogain.png" width="320"> |
+| portfolio value off | <img src="img/128x64/total_novalue.png" width="256"> | <img src="img/320x240/total_novalue.png" width="320"> |
 | only the first asset | <img src="img/128x64/single.png" width="256"> | <img src="img/320x240/single.png" width="320"> |
 | English number format | <img src="img/128x64/asset1_en.png" width="256"> | <img src="img/320x240/asset1_en.png" width="320"> |
 | brightness 40 % | | <img src="img/320x240/dimmed.png" width="320"> |

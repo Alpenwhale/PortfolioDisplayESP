@@ -84,8 +84,9 @@ def _row(w, r: dict) -> None:
     ident = r.get("id", "").upper()
     if not ident:
         return
+    # empty or 0 = not set (null), so a cleared field really clears the value
     rec = {"id": ident, "ex": r.get("ex") or "auto", "name": r.get("name", ""),
-           "qty": to_float(r.get("qty")), "buy": to_float(r.get("buy"))}
+           "qty": to_float(r.get("qty")) or None, "buy": to_float(r.get("buy")) or None}
 
     # the page only sends sym/yname back if id + exchange are unchanged
     if r.get("sym"):
