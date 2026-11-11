@@ -35,6 +35,7 @@ AP_PREFIX: str = "Portfolio"  # setup wifi = Portfolio-XXXX, short enough for 12
 WIFI_TIMEOUT_S: int = 20
 SETUP_IDLE_S: int = 600     # setup AP reboots after this idle time to retry wifi
 INFO_S: int = 10            # short FLASH press: show settings url this long
+WEB_HOLD_S: int = 600       # no price refresh this long after the last portal request (form being filled in)
 RESET_HOLD_S: int = 10      # FLASH held this long = factory reset
 PAGE_S: int = 5             # small screens: setup/info pages rotate this fast
 TLS_MIN_FREE: int = 22000   # Yahoo TLS: 18 KB was ok for query1, query2 crashed above 18.5; 22 KB always ok

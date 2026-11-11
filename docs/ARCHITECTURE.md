@@ -149,7 +149,7 @@ Limits per refresh: `FETCH_BATCH` assets, `FETCH_MAX_S` seconds, 10 s per reques
 | `GET /cfg.json` | settings, asset lines, visible networks. For passwords only whether one is set |
 | `POST /save` | body goes to `/pending.form`, then restart |
 
-The form is a static file. A script loads `/cfg.json`, fills the fields and clones one row per asset. `net.save.apply_pending()` applies the stored form at the next boot, row by row.
+The form is a static file. A script loads `/cfg.json`, fills the fields and clones one row per asset. Save stays disabled until that worked. The form is sent by script and retried for about a minute while the display is busy; after any portal request the device holds back the next refresh for `WEB_HOLD_S` (a refresh restarts the VM and drops the web server). `net.save.apply_pending()` applies the stored form at the next boot, row by row.
 
 ## Storage
 

@@ -79,6 +79,7 @@ class App:
         self.info_flip = 0
         self._reboot = 0
         self.just_saved = False  # set by the portal, handled in serve()
+        self.web_until = 0       # portal in use: no refresh (soft reset) until then
         self._press = 0
         self._shown_s = -1
         self.btn = machine.Pin(config.BUTTON_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
@@ -215,6 +216,9 @@ class App:
             cl, _ = self.srv.accept()
         except OSError:
             return False
+
+        # someone is on the settings page: keep the server up, no refresh for a while
+        self.web_until = later(config.WEB_HOLD_S * 1000)
 
         # portal only lives in RAM for the duration of one request
         gc.collect()

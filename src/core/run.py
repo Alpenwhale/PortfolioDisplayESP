@@ -46,8 +46,11 @@ def loop(app) -> None:
         app.button()
         app.maybe_reboot()
 
-        # refresh interval up -> fetch phase (not while the info screen, a button press or a reboot is pending)
-        if app.n and due(app.next_fetch) and not (app.info_until or app._reboot or app._press):
+        # refresh interval up -> fetch phase (not while the info screen, a button press, a reboot or
+        # the settings page is pending: the soft reset drops the web server)
+        if app.web_until and due(app.web_until):
+            app.web_until = 0
+        if app.n and due(app.next_fetch) and not (app.info_until or app._reboot or app._press or app.web_until):
             app.refresh()
 
         # info screen overrides everything while active
