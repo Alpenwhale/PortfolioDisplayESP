@@ -12,8 +12,16 @@ button{width:100%;background:#fff;color:#000;border:0;border-radius:14px;padding
 button.sec{background:#1c1c1e;color:#fff;margin-top:6px}
 button:disabled{opacity:.4}
 button.x{width:32px;height:32px;padding:0;margin:0;border-radius:16px;background:#2c2c2e;color:#8e8e93;font-size:20px;line-height:32px}
-.cb{width:auto}
-.c{display:block;margin:6px 0}
-.c[hidden]{display:none}
+.card{background:#1c1c1e;border-radius:14px;padding:0 12px;margin:8px 0 12px}
+.sw{display:flex;align-items:center;gap:12px;padding:11px 0;color:#fff;font-size:16px;border-top:1px solid #2c2c2e}
+.card>.sw:first-child,.card>div:first-child>.sw:first-child{border-top:0}
+.sw small{display:block;font-size:13px}
+.sw input{-webkit-appearance:none;appearance:none;flex:none;width:48px;height:28px;margin:0 0 0 auto;padding:0;border-radius:14px;background:#3a3a3c;position:relative;transition:background .2s}
+.sw input:before{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:#fff;transition:left .2s}
+.sw input:checked{background:#30d158}
+.sw input:checked:before{left:23px}
+.in{padding-bottom:6px}
+.in select{background:#2c2c2e;margin:0}
+[hidden]{display:none!important}
 small,p{color:#8e8e93}
 .sym{color:#fff}

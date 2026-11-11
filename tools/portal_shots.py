@@ -3,7 +3,7 @@
 Usage: uv run tools/portal_shots.py
 Serves the real src/www files on localhost with example /cfg.json data and takes
 phone-width shots with headless Edge/Chrome. No board needed.
-Whole pages (1_..4_) plus one shot per form section (wifi, display, assets, security).
+Whole pages (1_..4_) plus one shot per form section.
 """
 import json
 import shutil
@@ -26,7 +26,8 @@ BROWSERS = (r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
             r"C:\Program Files\Google\Chrome\Application\chrome.exe", "chromium", "google-chrome")
 
 BASE = {"ssid": "", "show_total": 1, "show_assets": 1, "single": 0, "period": "1d", "numfmt": "de",
-        "cur": "EUR", "show_gain": 1, "show_value": 1, "gain": "pct", "slide_s": 7, "total_s": 240, "fetch_s": 300, "bright": 100}
+        "cur": "EUR", "show_gain": 1, "show_value": 1, "show_change": 1, "sleep": 0, "sleep_from": "23:00",
+        "sleep_to": "07:00", "tz": "60eu", "gain": "pct", "slide_s": 7, "total_s": 240, "fetch_s": 300, "bright": 100}
 ASSETS = [
     {"id": "IE00B4L5Y983", "ex": ".DE", "name": "MSCI World", "qty": 10, "buy": 80.5,
      "sym": "EUNL.DE", "yname": "iShares Core MSCI World"},
@@ -35,13 +36,16 @@ ASSETS = [
 ]
 NETS = ["FRITZ!Box 7590 XY", "Home", "Neighbour-5G"]
 
-CONFIGURED = {"s": dict(BASE, ssid="Home", period="ytd"), "items": ASSETS,
+CONFIGURED = {"s": dict(BASE, ssid="Home", period="ytd", sleep=1), "items": ASSETS,
               "pw": True, "pp": True, "max": 50, "reset_s": 10, "nets": NETS}
 
 # name -> (path, cfg.json). "?only=<section>" shows just that part of the form (for the field tables)
 VIEWS = {
     "wifi": ("/?only=wifi", CONFIGURED),
+    "slides": ("/?only=slides", CONFIGURED),
+    "values": ("/?only=values", CONFIGURED),
     "display": ("/?only=display", CONFIGURED),
+    "night": ("/?only=night", CONFIGURED),
     "assets": ("/?only=assets", CONFIGURED),
     "security": ("/?only=security", CONFIGURED),
     "1_first_setup": ("/", {"s": BASE, "items": [], "pw": False, "pp": False, "max": 50, "reset_s": 10,

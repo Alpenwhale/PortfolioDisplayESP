@@ -18,40 +18,75 @@
 <label>Password</label><input name=pw type=password autocomplete=new-password>
 </section>
 
-<section id=display>
-<h2>Display</h2>
-<label class=c><input class=cb type=checkbox name=show_total> show total portfolio performance</label>
-<label class=c><input class=cb type=checkbox name=show_value> show the total portfolio value</label>
-<label class=c><input class=cb type=checkbox name=show_assets> show each asset in the slideshow</label>
-<label class=c><input class=cb type=checkbox name=single> show only the first asset (static, no slideshow)</label>
-<label class=c><input class=cb type=checkbox name=show_gain> show own performance since purchase</label>
-<label>Own performance as</label>
-<select name=gain>
-<option value=pct>Percent<option value=abs>Amount
-</select>
-<label>Show change over</label>
+<section id=slides>
+<h2>Slideshow</h2>
+<div class=card>
+<label class=sw><span>Only the first asset<small>static, no slideshow</small></span><input type=checkbox name=single></label>
+<div data-if="!single">
+<label class=sw><span>Portfolio page<small>total of all assets with a quantity</small></span><input type=checkbox name=show_total></label>
+<label class=sw><span>One page per asset</span><input type=checkbox name=show_assets></label>
+</div>
+</div>
+<div class=g data-if="!single">
+<div><label>Asset page (s)</label><input name=slide_s type=number min=3 inputmode=numeric></div>
+<div data-if="show_total"><label>Portfolio page (s)</label><input name=total_s type=number min=3 inputmode=numeric></div>
+</div>
+</section>
+
+<section id=values>
+<h2>Values</h2>
+<label>Change over</label>
 <select name=period>
 <option value=1d>Day<option value=5d>Week<option value=ytd>Year to date<option value=max>All time
 </select>
+<div class=card>
+<label class=sw><span>Own performance<small>since purchase, needs a buy price</small></span><input type=checkbox name=show_gain></label>
+<div data-if="show_gain" class=in>
+<select name=gain><option value=pct>in percent<option value=abs>as amount</select>
+</div>
+<div data-if="show_total">
+<label class=sw><span>Portfolio value<small>on the portfolio page</small></span><input type=checkbox name=show_value></label>
+<label class=sw><span>Portfolio change in money<small>over the period above</small></span><input type=checkbox name=show_change></label>
+</div>
+</div>
+</section>
+
+<section id=display>
+<h2>Display</h2>
 <label>Number format</label>
 <select name=numfmt>
 <option value=de>German: 1.234,56 € / +0,73 %<option value=en>English: €1,234.56 / +0.73%
 </select>
-<label>Currency (prices are converted at today's rate)</label>
+<label>Currency (converted at today's rate)</label>
 <select name=cur>
 <option value=EUR>Euro (EUR)<option value=USD>US Dollar (USD)<option value=GBP>British Pound (GBP)
 <option value=CHF>Swiss Franc (CHF)<option value=JPY>Japanese Yen (JPY)
 <option value=native>No conversion (exchange currency)
 </select>
 <div class=g>
-<div><label>Asset slide time (s)</label><input name=slide_s type=number min=3 inputmode=numeric></div>
-<div><label>Total slide time (s)</label><input name=total_s type=number min=3 inputmode=numeric></div>
-</div>
-<div class=g>
-<div><label>Refresh prices every (s)</label><input name=fetch_s type=number min=60 inputmode=numeric></div>
 <div><label>Brightness (%)</label><input name=bright type=number min=10 max=100 inputmode=numeric></div>
+<div><label>Refresh prices (s)</label><input name=fetch_s type=number min=60 inputmode=numeric></div>
 </div>
-<small>Prices refresh at the earliest after every slide was shown once.</small>
+<small>Prices refresh at the earliest after every page was shown once.</small>
+</section>
+
+<section id=night>
+<h2>Night</h2>
+<div class=card>
+<label class=sw><span>Sleep time<small>screen dark, no price refresh</small></span><input type=checkbox name=sleep></label>
+</div>
+<div data-if="sleep">
+<div class=g>
+<div><label>From</label><input name=sleep_from type=time></div>
+<div><label>Until</label><input name=sleep_to type=time></div>
+</div>
+<label>Time zone (summer time is automatic)</label>
+<select name=tz>
+<option value=0eu>London, Lisbon<option value=60eu>Berlin, Paris, Vienna, Zurich<option value=120eu>Athens, Helsinki
+<option value=-300us>New York<option value=-360us>Chicago<option value=-420us>Denver<option value=-480us>Los Angeles
+<option value=0>UTC<option value=330>India<option value=480>Singapore, Hong Kong<option value=540>Tokyo<option value=600>Brisbane
+</select>
+</div>
 </section>
 
 <section id=assets>
@@ -67,8 +102,10 @@ Enter the buy price in the display currency above.</small>
 <h2>Security</h2>
 <label>Password for this page on your network <span id=ppstate></span></label>
 <input name=pp type=password autocomplete=new-password>
-<label class=c id=ppdel hidden><input class=cb type=checkbox name=ppdel> remove password</label>
-<label class=c><input class=cb type=checkbox name=apnew> new setup Wi-Fi password (normally it never changes)</label>
+<div class=card>
+<label class=sw id=ppdel hidden><span>Remove password</span><input type=checkbox name=ppdel></label>
+<label class=sw><span>New setup Wi-Fi password<small>normally it never changes</small></span><input type=checkbox name=apnew></label>
+</div>
 <p><small>Forgot the password? Press FLASH while the display shows 'Starting...' = setup mode
 without login. Hold FLASH for <span id=resets>10</span> s = factory reset.</small></p>
 </section>
@@ -105,6 +142,16 @@ if (location.search == '?ok') {
   $('#note').textContent = 'Saved.';
   history.replaceState(null, '', '/');
 }
+
+// switches, and the blocks that only matter when a switch is on (data-if="name" / "!name")
+const SWITCHES = ['show_total', 'show_assets', 'single', 'show_gain', 'show_value', 'show_change', 'sleep'];
+function deps() {
+  for (const e of document.querySelectorAll('[data-if]')) {
+    const k = e.dataset.if.replace('!', ''), on = f.elements[k].checked;
+    e.hidden = e.dataset.if[0] == '!' ? on : !on;
+  }
+}
+f.addEventListener('change', deps);
 
 // one asset row from the template
 function addRow(it) {
@@ -182,8 +229,10 @@ function fill(c) {
   max = c.max;
 
   // plain fields
-  for (const k of ['ssid', 'period', 'numfmt', 'cur', 'gain', 'slide_s', 'total_s', 'fetch_s', 'bright']) f.elements[k].value = s[k];
-  for (const k of ['show_total', 'show_assets', 'single', 'show_gain', 'show_value']) f.elements[k].checked = s[k];
+  for (const k of ['ssid', 'period', 'numfmt', 'cur', 'gain', 'slide_s', 'total_s', 'fetch_s', 'bright',
+                   'sleep_from', 'sleep_to', 'tz']) f.elements[k].value = s[k];
+  for (const k of SWITCHES) f.elements[k].checked = s[k];
+  deps();
   f.pw.placeholder = c.pw ? 'saved - leave empty to keep' : '';
   for (const n of c.nets) $('#nets').append(new Option(n));
 
