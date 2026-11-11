@@ -8,7 +8,7 @@ A small desk display for your stocks, ETFs and funds. MicroPython on an ESP8266 
 
 | 0.96" OLED | Setup by QR code | Settings from the phone |
 |---|---|---|
-| <img src="docs/img/128x64/asset0.png" width="280"> | <img src="docs/img/320x240/setup0.png" width="280"> | <img src="docs/img/portal/display.png" width="200"> |
+| <img src="docs/img/128x64/asset0.png" width="280"> | <img src="docs/img/320x240/setup0.png" width="280"> | <img src="docs/img/portal/values.png" width="280"> |
 
 ## Features
 
@@ -19,7 +19,7 @@ A small desk display for your stocks, ETFs and funds. MicroPython on an ESP8266 
 - ISIN, ticker or German WKN; Xetra and the common international exchanges
 - Prices from Yahoo Finance, no API key, converted to your currency
 - Setup from the phone: scan a QR code, fill in one page
-- German or English number format, adjustable brightness
+- German or English number format, adjustable brightness, sleep time with automatic summer time
 - Wi-Fi password stored encrypted, never sent back to the browser
 - Runs in the ~36 KB heap of an ESP8266, TLS included
 

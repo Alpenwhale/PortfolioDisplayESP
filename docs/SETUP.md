@@ -41,24 +41,47 @@ Every save restarts the device (about 15 s). If the phone stays in the same Wi-F
 | Network | your Wi-Fi, networks in range are suggested |
 | Password | never shown again. Empty = keep the stored one |
 
+**Slideshow**
+
+<img src="img/portal/slides.png" width="300">
+
+| Field | Meaning |
+|---|---|
+| Only the first asset | static, no slideshow. Hides the other slideshow options |
+| Portfolio page | a page with the total of all assets that have a quantity |
+| One page per asset | |
+| Asset page / Portfolio page | seconds per page (default 7 / 240) |
+
+**Values**
+
+<img src="img/portal/values.png" width="300">
+
+| Field | Meaning |
+|---|---|
+| Change over | day / week / year to date / all time, for every page |
+| Own performance | the "Since purchase" line (default on), in percent or as amount |
+| Portfolio value | value of all holdings on the portfolio page (default on) |
+| Portfolio change in money | change over the period on the portfolio page (default on) |
+
 **Display**
 
 <img src="img/portal/display.png" width="300">
 
 | Field | Meaning |
 |---|---|
-| show total portfolio performance | adds a page with the total of all assets that have a quantity |
-| show the total portfolio value | value line on the total page (default on) |
-| show each asset in the slideshow | one page per asset |
-| show only the first asset | static, no slideshow. Overrides the two switches above |
-| show own performance since purchase | adds the "Since purchase" line (default on) |
-| Own performance as | percent or amount in money |
-| Show change over | day / week / year to date / all time. Applies to every page |
 | Number format | German `1.234,56 €` (default) or English `€1,234.56` |
 | Currency | display currency (default EUR), converted at today's rate |
-| Asset slide time / Total slide time | seconds per asset page / for the total page (default 7 / 240) |
-| Refresh prices every | seconds, at least 60 |
 | Brightness | 10-100 % |
+| Refresh prices | seconds, at least 60 |
+
+**Night**
+
+<img src="img/portal/night.png" width="300">
+
+| Field | Meaning |
+|---|---|
+| Sleep time | between From and Until the screen goes dark and no prices are fetched. Afterwards the device fetches right away |
+| Time zone | for the sleep time; summer time switches automatically (EU and US rules). The clock is set over the internet on every refresh |
 
 **Assets** (up to 50)
 
@@ -101,6 +124,8 @@ FLASH (sometimes labelled BOOT) is one of the two small buttons next to the USB 
 
 Don't hold FLASH while plugging in, the chip then waits for a firmware upload. Press RST to get out.
 
+During the sleep time a short press shows the settings address too; afterwards the screen goes dark again.
+
 A factory reset clears Wi-Fi, assets and the page password. The setup Wi-Fi password stays.
 
 ## A4. Forgot a password?
@@ -133,6 +158,7 @@ The total page adds up all assets that have a quantity; the own performance uses
 | own performance as amount | | <img src="img/320x240/total_abs.png" width="320"> |
 | own performance off | | <img src="img/320x240/asset0_nogain.png" width="320"> |
 | portfolio value off | <img src="img/128x64/total_novalue.png" width="256"> | <img src="img/320x240/total_novalue.png" width="320"> |
+| value and change off | | <img src="img/320x240/total_minimal.png" width="320"> |
 | only the first asset | <img src="img/128x64/single.png" width="256"> | <img src="img/320x240/single.png" width="320"> |
 | English number format | <img src="img/128x64/asset1_en.png" width="256"> | <img src="img/320x240/asset1_en.png" width="320"> |
 | brightness 40 % | | <img src="img/320x240/dimmed.png" width="320"> |

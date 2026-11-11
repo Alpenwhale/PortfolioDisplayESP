@@ -15,6 +15,7 @@ src/
     boot.py        once per boot: display, pending form, Wi-Fi, mode decision
     fetch.py       fetch phase: prices -> /prices.bin, runs with an empty heap
     reset.py       soft reset from running code
+    clock.py       local time (offset + EU/US summer time) for the sleep window
     run.py         normal loop: slideshow, web, button, triggers refresh
     setup.py       setup mode (AP + portal), QR pages, settings address screen
     screens.py     asset page and portfolio total page
@@ -101,6 +102,10 @@ every 30 ms:
 
 Slides: the portfolio total page first (if enabled), then one page per asset. `single` shows only the first asset. `App.load_assets()` derives `app.total` (0/1) and `app.pages` from the settings.
 
+## Sleep window
+
+Every 30 s `run.nap()` loads `core.clock`, checks the window and drops it again. Asleep: screen black (`Display.power(False)`: OLED off, TFT backlight off if `TFT_BL` is wired, else just black), no slideshow, no refresh. Waking redraws and refreshes at once. The RTC runs in UTC; the fetch phase sets it with `ntptime` on every refresh while the sleep window is on (the ESP8266 RTC drifts). Time zone = base offset + rule, e.g. `60eu`.
+
 ## Refresh
 
 A TLS connection needs about 20 KB of free heap. The fetch therefore runs in its own phase right after a soft reset, before anything else is loaded.
@@ -155,7 +160,7 @@ The form is a static file. A script loads `/cfg.json`, fills the fields and clon
 
 | File | Content | Factory reset |
 |---|---|---|
-| `/settings.json` | `ssid`, `show_total`, `show_assets`, `single`, `show_gain`, `gain`, `show_value`, `period`, `numfmt`, `cur`, `slide_s`, `total_s`, `fetch_s`, `bright` | removed |
+| `/settings.json` | `ssid`, `show_total`, `show_assets`, `single`, `show_gain`, `gain`, `show_value`, `show_change`, `sleep`, `sleep_from`, `sleep_to`, `tz`, `period`, `numfmt`, `cur`, `slide_s`, `total_s`, `fetch_s`, `bright` | removed |
 | `/assets.jsonl` | per line: `id`, `ex`, `name`, `qty`, `buy`, `sym`, `yname` | removed |
 | `/prices.bin` | per asset: price, base (f32), valid flag, currency, last error | removed |
 | `/secret.bin` | AES: Wi-Fi password, salted hash of the page password | removed |
