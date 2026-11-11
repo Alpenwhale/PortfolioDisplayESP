@@ -71,7 +71,7 @@ Enter the buy price in the display currency above.</small>
 <p><small>Forgot the password? Press FLASH while the display shows 'Starting...' = setup mode
 without login. Hold FLASH for <span id=resets>10</span> s = factory reset.</small></p>
 </section>
-<button>Save</button>
+<button id=save disabled>Loading...</button>
 </form>
 
 <template id=row>
@@ -100,7 +100,10 @@ without login. Hold FLASH for <span id=resets>10</span> s = factory reset.</smal
 // settings come from /cfg.json, secrets never do
 const $ = s => document.querySelector(s), f = $('#f');
 let max = 20;
-if (location.search == '?ok') $('#note').textContent = 'Saved.';
+if (location.search == '?ok') {
+  $('#note').textContent = 'Saved.';
+  history.replaceState(null, '', '/');
+}
 
 // one asset row from the template
 function addRow(it) {
@@ -137,7 +140,16 @@ f.onsubmit = () => {
   });
 };
 
-fetch('/cfg.json').then(r => r.json()).then(c => {
+// Save stays off until the form is filled: a half-loaded form would wipe the asset list
+function load(tries) {
+  fetch('/cfg.json', {cache: 'no-store'}).then(r => r.json()).then(fill).catch(() => {
+    if (tries > 0) setTimeout(() => load(tries - 1), 2000);
+    else $('#save').textContent = 'Device not reachable - reload';
+  });
+}
+load(10);
+
+function fill(c) {
   const s = c.s;
   max = c.max;
 
@@ -156,5 +168,7 @@ fetch('/cfg.json').then(r => r.json()).then(c => {
   f.pp.placeholder = c.pp ? 'leave empty to keep' : '';
   $('#ppdel').hidden = !c.pp;
   $('#resets').textContent = c.reset_s;
-});
+  $('#save').disabled = false;
+  $('#save').textContent = 'Save';
+}
 </script>

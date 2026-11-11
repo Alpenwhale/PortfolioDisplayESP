@@ -11,10 +11,13 @@
 the display shows the address of this page for a few seconds (press FLASH briefly to show it
 again). If the display shows the setup screen again, the Wi-Fi name or password was wrong.</small></p>
 <script>
-// poll until the device answers again, then back to the form
-let n = 0;
+// the device restarts ~1.5 s after the answer: it only counts as back after it was gone once
+// (or after 20 s), otherwise the form would load from the old firmware run and miss its data
+let n = 0, gone = false;
 const t = setInterval(() => {
   if (++n > 40) { clearInterval(t); document.getElementById('wait').textContent = 'No answer, reload manually.'; return; }
-  fetch('/s.css', {cache: 'no-store'}).then(r => { if (r.ok) { clearInterval(t); location.href = '/?ok'; } }).catch(() => {});
+  fetch('/s.css', {cache: 'no-store'})
+    .then(r => { if (r.ok && (gone || n > 6)) { clearInterval(t); location.replace('/?ok'); } })
+    .catch(() => { gone = true; });
 }, 3000);
 </script>
