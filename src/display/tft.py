@@ -66,8 +66,17 @@ class TFT(Display):
         if self.bl is None:
             return False
         from machine import PWM
+        self._pct = pct
         PWM(Pin(self.bl), freq=1000, duty=pct * 1023 // 100)
         return True
+
+    def power(self, on: bool) -> None:
+        """Backlight off via its pin. Without one the screen is just black (BLK on 3V3)."""
+        if self.bl is None:
+            return
+        pct = getattr(self, "_pct", 100)
+        self.brightness(pct if on else 0)
+        self._pct = pct  # the setting, not the 0 of the dark phase
 
     def rgb(self, r: int, g: int, b: int) -> int:
         """8-bit RGB to RGB565."""

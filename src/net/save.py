@@ -11,11 +11,12 @@ import os
 from data import assets, store
 
 PENDING = "/pending.form"
-SWITCHES = ("show_total", "show_assets", "single", "show_gain", "show_value")
+SWITCHES = ("show_total", "show_assets", "single", "show_gain", "show_value", "show_change", "sleep")
 PERIODS = ("1d", "5d", "ytd", "max")
 NUMFMTS = ("de", "en")
 CURRENCIES = ("EUR", "USD", "GBP", "CHF", "JPY", "native")
 GAINS = ("pct", "abs")
+ZONES = ("0eu", "60eu", "120eu", "-300us", "-360us", "-420us", "-480us", "0", "330", "480", "540", "600")
 ROW_FIELDS = ("id", "ex", "name", "qty", "buy", "sym", "yname")
 
 
@@ -153,12 +154,18 @@ def save(app, read) -> None:
         store.new_ap_password()
 
     # display settings, only known values, numbers clamped
-    for key, allowed in (("period", PERIODS), ("numfmt", NUMFMTS), ("cur", CURRENCIES), ("gain", GAINS)):
+    for key, allowed in (("period", PERIODS), ("numfmt", NUMFMTS), ("cur", CURRENCIES), ("gain", GAINS), ("tz", ZONES)):
         if g.get(key) in allowed:
             s[key] = g[key]
     for key, low, high, default in (("slide_s", 3, 3600, 7), ("total_s", 3, 3600, 240),
                                     ("fetch_s", 60, 86400, 300), ("bright", 10, 100, 100)):
         s[key] = max(low, min(high, int(to_float(g.get(key)) or default)))
+
+    # sleep window "HH:MM"
+    for key in ("sleep_from", "sleep_to"):
+        v = g.get(key, "")
+        if len(v) == 5 and v[2] == ":" and v[:2].isdigit() and v[3:].isdigit() and int(v[:2]) < 24 and int(v[3:]) < 60:
+            s[key] = v
 
     # checkboxes are only sent when ticked
     for key in SWITCHES:

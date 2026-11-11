@@ -131,7 +131,7 @@ def run(state: dict) -> dict:
             s = json.load(f)
     except (OSError, ValueError):
         s = {}
-    period, want = s.get("period", "1d"), s.get("cur", "EUR")
+    period, want, ntp = s.get("period", "1d"), s.get("cur", "EUR"), s.get("sleep")
     del s
 
     # wifi survives the soft reset, give the SDK a moment if it dropped
@@ -142,6 +142,15 @@ def run(state: dict) -> dict:
         time.sleep_ms(200)
     if not sta.isconnected():
         return state
+
+    # utc clock for the sleep window (rtc drifts, so on every refresh)
+    if ntp:
+        try:
+            import ntptime
+            ntptime.settime()
+        except Exception as e:
+            print("ntp", repr(e))
+        sys.modules.pop("ntptime", None)
 
     # next batch, wrapping around the list
     from data import assets

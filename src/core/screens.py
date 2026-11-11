@@ -46,13 +46,13 @@ def _card(app, labels: list, ch: float, start: float, worth: str, gain: str, sin
           extra=None) -> None:
     """Shared layout: headline = change in % over the period, value with arrow, change in money, own performance.
 
-    worth None = value line hidden, the trend arrow moves to the change line.
+    worth / gain None = line hidden, the trend arrow sits on the first line shown.
     """
     u = app.ui
     lbl = PERIOD.get(app.s["period"], "")
 
     # small screens only fit one line, so the period label rides along with the first one
-    subs = [([gain + " " + lbl, gain], u.tone(ch), 0 if worth else ch)]
+    subs = [([gain + " " + lbl, gain], u.tone(ch), 0 if worth else ch)] if gain else []
     if worth:
         subs.insert(0, ([worth + " " + lbl, worth] if u.small else [worth], u.fg, ch))
     if since:
@@ -125,4 +125,5 @@ def portfolio(app) -> None:
     since = _since(app, paid - cost, cost, code, 2, partial)
     extra = (["%d price(s) missing" % missing], u.dim, 0) if missing else None
     worth = money_str(value, code) if app.s["show_value"] else None
-    _card(app, ["Portfolio"], ch, start, worth, money_str(ch, code, 2, True), since, page, extra)
+    gain = money_str(ch, code, 2, True) if app.s["show_change"] else None
+    _card(app, ["Portfolio"], ch, start, worth, gain, since, page, extra)

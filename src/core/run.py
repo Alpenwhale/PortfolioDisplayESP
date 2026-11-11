@@ -7,7 +7,7 @@ import gc
 import time
 
 import config
-from core.app import later, due
+from core.app import later, due, drop
 
 
 def every(app, frozen: int = 0) -> int:
@@ -40,17 +40,24 @@ def loop(app) -> None:
     app.slide %= max(1, app.pages)
     app.next_fetch = later(every(app))
     app.next_slide = later(app.slide_ms())
+    app.asleep, check = False, 0
 
     while True:
         app.serve()
         app.button()
         app.maybe_reboot()
 
+        # sleep window, checked twice a minute (clock module only loaded for the check)
+        if due(check):
+            check = later(30000)
+            nap(app)
+
         # refresh interval up -> fetch phase (not while the info screen, a button press, a reboot or
         # the settings page is pending: the soft reset drops the web server)
         if app.web_until and due(app.web_until):
             app.web_until = 0
-        if app.n and due(app.next_fetch) and not (app.info_until or app._reboot or app._press or app.web_until):
+        if app.n and due(app.next_fetch) and not (app.info_until or app._reboot or app._press or app.web_until
+                                                  or app.asleep):
             app.refresh()
 
         # info screen overrides everything while active
@@ -61,6 +68,15 @@ def loop(app) -> None:
             continue
         if app.info_until:
             app.info_until, app.dirty = 0, True
+
+        # asleep: screen stays dark, nothing to draw
+        if app.asleep:
+            if app.dirty:
+                app.dirty = False
+                app.d.fill(0)
+                app.d.show()
+            time.sleep_ms(30)
+            continue
 
         # slideshow
         if app.pages > 1 and due(app.next_slide):
@@ -78,6 +94,24 @@ def loop(app) -> None:
             print("draw", app.slide, "free", gc.mem_free())
             thawed(app)
         time.sleep_ms(30)
+
+
+def nap(app) -> None:
+    """Enter / leave the sleep window: screen dark (backlight / OLED off if possible), no refresh."""
+    from core import clock
+    now = clock.asleep(app.s)
+    del clock
+    drop("core.clock")
+    if now == app.asleep:
+        return
+    app.asleep = now
+    print("sleep" if now else "wake")
+
+    # dark screen; on waking redraw and get fresh prices right away
+    app.d.power(not now)
+    app.dirty = True
+    if not now:
+        app.next_fetch = later(0)
 
 
 def info(app) -> None:

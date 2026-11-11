@@ -34,6 +34,13 @@ class OLED(Display):
         self.dev.contrast(pct * 255 // 100)
         return True
 
+    def power(self, on: bool) -> None:
+        """OLED panel off = really dark."""
+        if on:
+            self.dev.poweron()
+        else:
+            self.dev.poweroff()
+
     def show(self) -> None:
         """Push buffer to the panel."""
         self.dev.show()

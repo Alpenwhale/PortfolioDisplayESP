@@ -21,6 +21,11 @@ DEFAULTS = {
     "single": 0,       # 1 = only the first asset, static (overrides the two above)
     "show_gain": 1,    # own performance since purchase
     "show_value": 1,   # total page: value of all holdings
+    "show_change": 1,  # total page: change in money over the period
+    "sleep": 0,        # dark screen + no refresh between sleep_from and sleep_to (local time)
+    "sleep_from": "23:00",
+    "sleep_to": "07:00",
+    "tz": "60eu",      # base offset in minutes + DST rule (eu | us | none), see core.clock
     "gain": "pct",     # pct | abs
     "period": "1d",    # 1d | 5d | ytd | max, change shown next to the price
     "numfmt": "de",    # de: 1.234,56 € | en: €1,234.56

@@ -25,6 +25,9 @@ class Display:
         """Dim the panel itself. False = can't, the ui darkens its colors instead."""
         return False
 
+    def power(self, on: bool) -> None:
+        """Backlight / panel on or off where the hardware can. The caller fills the screen black."""
+
     def show(self) -> None:
         """Flush buffer. No-op for unbuffered displays."""
 
