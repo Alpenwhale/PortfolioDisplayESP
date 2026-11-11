@@ -26,7 +26,7 @@ BROWSERS = (r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
             r"C:\Program Files\Google\Chrome\Application\chrome.exe", "chromium", "google-chrome")
 
 BASE = {"ssid": "", "show_total": 1, "show_assets": 1, "single": 0, "period": "1d", "numfmt": "de",
-        "cur": "EUR", "slide_s": 8, "total_s": 8, "fetch_s": 300, "bright": 100}
+        "cur": "EUR", "show_gain": 1, "gain": "pct", "slide_s": 8, "total_s": 8, "fetch_s": 300, "bright": 100}
 ASSETS = [
     {"id": "IE00B4L5Y983", "ex": ".DE", "name": "MSCI World", "qty": 10, "buy": 80.5,
      "sym": "EUNL.DE", "yname": "iShares Core MSCI World"},

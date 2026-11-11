@@ -2,7 +2,8 @@
 
 Numbers come from the app's float arrays (price/base/qty/buy, NaN = not fetched yet),
 names from the asset record on flash (only the one on screen is read).
-The change over the configured period is always the headline, the price sits below.
+Both pages look the same: change over the configured period as the headline, price/value
+below, then the change in money and (optional) the own performance since purchase.
 """
 from ui import fmt
 from ui.card import card
@@ -29,19 +30,36 @@ def _labels(rec: dict) -> list:
     return [name, rec.get("id", "?")] if name else [rec.get("id", "?")]
 
 
-def _subs(u, lbl: str, worth: str, ch: float, gain: str, r) -> list:
-    """Lines below the headline: value with trend arrow, change in money, return since purchase."""
+def _since(app, gain: float, cost: float, code: str, dec: int, partial: bool):
+    """Own performance since purchase as sub line, None if switched off or unknown.
+
+    gain/cost in money. * = not every asset had the values for it (qty + buy price).
+    """
+    if not app.s["show_gain"] or not cost:
+        return None
+    s = (money_str(gain, code, dec, True) if app.s["gain"] == "abs" else pct(gain / cost * 100)) + \
+        ("*" if partial else "")
+    return ["Since purchase " + s, s], app.ui.tone(gain), 0
+
+
+def _card(app, labels: list, ch: float, start: float, worth: str, gain: str, since, page: tuple,
+          extra=None) -> None:
+    """Shared layout: headline = change in % over the period, value with arrow, change in money, own performance."""
+    u = app.ui
+    lbl = PERIOD.get(app.s["period"], "")
 
     # small screens only fit one line, so the period label rides along with the value
     subs = [([worth + " " + lbl, worth] if u.small else [worth], u.fg, ch),
             ([gain + " " + lbl, gain], u.tone(ch), 0)]
-    if r is not None:
-        subs.append((["Since purchase " + pct(r), pct(r)], u.tone(r), 0))
-    return subs
+    if since:
+        subs.append(since)
+    if extra:
+        subs.append(extra)
+    card(u, labels, signed(ch / start * 100 if start else 0), pct_unit(), u.tone(ch), subs, page)
 
 
 def item(app, i: int) -> None:
-    """One asset: change in percent big, price small."""
+    """One asset."""
     u, rec = app.ui, app.asset(i)
     page = (app.slide, app.pages)
     p = app.price[i]
@@ -52,37 +70,43 @@ def item(app, i: int) -> None:
         card(u, _labels(rec), "-", "", u.dim, [([msg], u.dim, 0)], page)
         return
 
-    # change over the configured period
+    # amount needs the quantity, without it the per-unit gain is shown (marked)
     b, code = app.base[i], app.curs[app.cur[i]]
     dec = decimals(p)
-    ch = p - b
-    buy = app.buy[i]
-    subs = _subs(u, PERIOD.get(app.s["period"], ""), money_str(p, code, dec), ch,
-                 money_str(ch, code, dec, True), (p - buy) / buy * 100 if buy else None)
-    card(u, _labels(rec), signed(ch / b * 100 if b else 0), pct_unit(), u.tone(ch), subs, page)
+    buy, qty = app.buy[i], app.qty[i]
+    k = qty or 1
+    since = _since(app, (p - buy) * k, buy * k, code, dec, app.s["gain"] == "abs" and not qty) if buy else None
+    _card(app, _labels(rec), p - b, b, money_str(p, code, dec), money_str(p - b, code, dec, True), since, page)
 
 
 def portfolio(app) -> None:
-    """All holdings (assets with a quantity) as one position. Arrays only, no flash reads."""
+    """All holdings as one position, same layout as an asset. Arrays only, no flash reads."""
     u = app.ui
     page = (app.slide, app.pages)
     value = start = cost = paid = 0.0
     code = ""
     missing = 0
+    partial = False
 
-    # sum up holdings that have a price
+    # assets without qty (period change) or buy price (own performance) are left out, * marks that
     for i in range(app.n):
         qty, buy, p = app.qty[i], app.buy[i], app.price[i]
+        if not (qty and buy):
+            partial = True
         if not qty:
             continue
         if p != p:
             missing += 1
             continue
+
+        # no exchange rate this time: never add up two currencies
+        c = app.curs[app.cur[i]]
+        if code and c != code:
+            partial = True
+            continue
+        code = c
         value += qty * p
         start += qty * app.base[i]
-        code = code or app.curs[app.cur[i]]
-
-        # return since purchase only over the assets that have a buy price
         if buy:
             cost += qty * buy
             paid += qty * p
@@ -93,10 +117,7 @@ def portfolio(app) -> None:
         card(u, ["Portfolio"], "-", "", u.dim, [([msg], u.dim, 0)], page)
         return
 
-    # same layout as an asset
     ch = value - start
-    subs = _subs(u, PERIOD.get(app.s["period"], ""), money_str(value, code), ch,
-                 money_str(ch, code, 2, True), (paid - cost) / cost * 100 if cost else None)
-    if missing:
-        subs.append((["%d price(s) missing" % missing], u.dim, 0))
-    card(u, ["Portfolio"], signed(ch / start * 100), pct_unit(), u.tone(ch), subs, page)
+    since = _since(app, paid - cost, cost, code, 2, partial)
+    extra = (["%d price(s) missing" % missing], u.dim, 0) if missing else None
+    _card(app, ["Portfolio"], ch, start, money_str(value, code), money_str(ch, code, 2, True), since, page, extra)

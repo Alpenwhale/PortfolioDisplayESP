@@ -11,10 +11,11 @@ import os
 from data import assets, store
 
 PENDING = "/pending.form"
-SWITCHES = ("show_total", "show_assets", "single")
+SWITCHES = ("show_total", "show_assets", "single", "show_gain")
 PERIODS = ("1d", "5d", "ytd", "max")
 NUMFMTS = ("de", "en")
 CURRENCIES = ("EUR", "USD", "GBP", "CHF", "JPY", "native")
+GAINS = ("pct", "abs")
 ROW_FIELDS = ("id", "ex", "name", "qty", "buy", "sym", "yname")
 
 
@@ -151,7 +152,7 @@ def save(app, read) -> None:
         store.new_ap_password()
 
     # display settings, only known values, numbers clamped
-    for key, allowed in (("period", PERIODS), ("numfmt", NUMFMTS), ("cur", CURRENCIES)):
+    for key, allowed in (("period", PERIODS), ("numfmt", NUMFMTS), ("cur", CURRENCIES), ("gain", GAINS)):
         if g.get(key) in allowed:
             s[key] = g[key]
     for key, low, high, default in (("slide_s", 3, 3600, 8), ("total_s", 3, 3600, 8),

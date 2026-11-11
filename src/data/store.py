@@ -19,6 +19,8 @@ DEFAULTS = {
     "show_total": 1,   # slideshow: portfolio total page
     "show_assets": 1,  # slideshow: one page per asset
     "single": 0,       # 1 = only the first asset, static (overrides the two above)
+    "show_gain": 1,    # own performance since purchase
+    "gain": "pct",     # pct | abs
     "period": "1d",    # 1d | 5d | ytd | max, change shown next to the price
     "numfmt": "de",    # de: 1.234,56 € | en: €1,234.56
     "cur": "EUR",      # display currency, "native" = no conversion

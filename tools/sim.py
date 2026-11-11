@@ -121,9 +121,10 @@ NAN = float("nan")
 class FakeApp:
     """Same fields core.screens reads from core.app.App: settings, float arrays, asset()."""
 
-    def __init__(self, ui, slide: int = 0, period: str = "1d", numfmt: str = "de", single: bool = False) -> None:
+    def __init__(self, ui, slide: int = 0, period: str = "1d", numfmt: str = "de", single: bool = False,
+                 gain: str = "pct", show_gain: int = 1) -> None:
         self.ui, self.slide, self.ip = ui, slide, "192.168.178.123"
-        self.s = {"period": period, "numfmt": numfmt}
+        self.s = {"period": period, "numfmt": numfmt, "gain": gain, "show_gain": show_gain}
         self.n = len(ITEMS)
 
         # slide 0 = portfolio total, then the assets; single = first asset only
@@ -190,6 +191,9 @@ def main() -> None:
         shot("asset0_ytd", lambda u: screens.render(FakeApp(u, 1, "ytd")))
         shot("asset1_en", lambda u: screens.render(FakeApp(u, 2, numfmt="en")))
         shot("single", lambda u: screens.render(FakeApp(u, single=True)))
+        shot("total_abs", lambda u: screens.render(FakeApp(u, gain="abs")))
+        shot("asset0_abs", lambda u: screens.render(FakeApp(u, 1, gain="abs")))
+        shot("asset0_nogain", lambda u: screens.render(FakeApp(u, 1, show_gain=0)))
         shot("dimmed", lambda u: screens.render(FakeApp(UI(u.d, 40), 1)))
     check_qr()
     print("pngs in", OUT)
