@@ -8,7 +8,7 @@
 <h1>PortfolioDisplay</h1>
 <p id=note></p>
 <!-- autocomplete/autocorrect/spellcheck off: phone keyboards don't learn or suggest what's typed here -->
-<form method=post action=/save id=f autocomplete=off>
+<form method=post action=/save id=f autocomplete=off novalidate>
 
 <section id=wifi>
 <h2>Wi-Fi</h2>
@@ -48,7 +48,7 @@
 </div>
 <div class=g>
 <div><label>Refresh prices every (s)</label><input name=fetch_s type=number min=60 inputmode=numeric></div>
-<div><label>Brightness (%)</label><input name=bright type=number min=10 max=100 step=10 inputmode=numeric></div>
+<div><label>Brightness (%)</label><input name=bright type=number min=10 max=100 inputmode=numeric></div>
 </div>
 <small>Prices refresh at the earliest after every slide was shown once.</small>
 </section>
@@ -138,7 +138,34 @@ f.onsubmit = () => {
       for (const n of ['sym', 'yname']) box.querySelector('[data-n=' + n + ']').value = '';
     for (const e of box.querySelectorAll('[data-n]')) e.name = e.dataset.n + i;
   });
+
+  // sent by script: if the display is busy (fetching prices, drawing) the request is retried
+  // instead of a dead browser error page and a lost form
+  $('#save').disabled = true;
+  send(new URLSearchParams(new FormData(f)).toString(), 20);
+  return false;
 };
+
+function send(body, tries) {
+  const b = $('#save');
+  b.textContent = 'Saving...';
+  fetch('/save', {method: 'POST', body, headers: {'Content-Type': 'application/x-www-form-urlencoded'}})
+    .then(r => {
+      if (r.status == 401) throw 'login';
+      if (!r.ok) throw r.status;
+      return r.text();
+    })
+    .then(html => { document.open(); document.write(html); document.close(); })
+    .catch(e => {
+      if (e != 'login' && tries > 0) {
+        b.textContent = 'Display busy, retrying...';
+        setTimeout(() => send(body, tries - 1), 3000);
+        return;
+      }
+      b.disabled = false;
+      b.textContent = e == 'login' ? 'Login needed - reload the page' : 'Not saved - press again';
+    });
+}
 
 // Save stays off until the form is filled: a half-loaded form would wipe the asset list
 function load(tries) {
