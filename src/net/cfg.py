@@ -25,6 +25,7 @@ def send(cl, app, head) -> None:
         cl.write(sep)
         cl.write(ln)
         sep = ","
-    cl.write('],"pw":%s,"pp":%s,"max":%d,"reset_s":%d,"nets":%s}' % (
+    cl.write('],"off":%s' % ("true" if getattr(app, "off", False) else "false"))
+    cl.write(',"pw":%s,"pp":%s,"max":%d,"reset_s":%d,"nets":%s}' % (
         "true" if app.sec.get("pw") else "false", "true" if app.sec.get("pp") else "false",
         assets.MAX, config.RESET_HOLD_S, json.dumps(nets)))

@@ -1,5 +1,8 @@
 body{background:#000;color:#fff;font-family:-apple-system,Helvetica,Arial,sans-serif;max-width:640px;margin:auto;padding:16px}
-h1{font-size:28px}
+h1{font-size:28px;margin:0}
+header{display:flex;align-items:center;gap:12px;margin:8px 0 16px}
+button.pwr{width:auto;margin:0;padding:7px 14px 7px 10px;border-radius:20px;display:flex;align-items:center;gap:6px;font-size:15px;background:#30d158;color:#000}
+button.pwr.off{background:#3a3a3c;color:#fff}
 h2{font-size:15px;color:#8e8e93;text-transform:uppercase;margin-top:28px}
 input,select{width:100%;box-sizing:border-box;background:#1c1c1e;color:#fff;border:0;border-radius:10px;padding:12px;margin:4px 0 10px;font-size:16px}
 label{color:#8e8e93;font-size:14px}

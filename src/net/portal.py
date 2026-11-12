@@ -128,6 +128,22 @@ def handle(cl, app) -> None:
         send_file(cl, STATIC["/saved"])
         return
 
+    # power switch: off = dark like the sleep window, kept in a flag file, applied right away
+    if method == "POST" and path in ("/on", "/off"):
+        import os
+        app.off = path == "/off"
+        try:
+            if app.off:
+                open("/off", "w").close()
+            else:
+                os.remove("/off")
+        except OSError:
+            pass
+        app.nap_at = 0  # checked on the next loop pass
+        head(cl, "200 OK", "application/json")
+        cl.write('{"off":%s}' % ("true" if app.off else "false"))
+        return
+
     # form data (own module), anything else (captive portal probes etc.) gets the form
     if path == "/cfg.json":
         from net import cfg

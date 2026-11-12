@@ -5,7 +5,12 @@
 <title>PortfolioDisplay</title>
 <meta name=author content="Alpenwhale - PUNCL-1.0, non-commercial use only">
 <link rel=stylesheet href=/s.css>
+<header>
+<button type=button id=power class="pwr" title="Display on / off" disabled>
+<svg viewBox="0 0 24 24" width=20 height=20><path d="M12 3v8M6.4 6.6a8 8 0 1 0 11.2 0" fill=none stroke=currentColor stroke-width=2.4 stroke-linecap=round /></svg>
+<span>...</span></button>
 <h1>PortfolioDisplay</h1>
+</header>
 <p id=note></p>
 <!-- autocomplete/autocorrect/spellcheck off: phone keyboards don't learn or suggest what's typed here -->
 <form method=post action=/save id=f autocomplete=off novalidate>
@@ -143,6 +148,21 @@ if (location.search == '?ok') {
   history.replaceState(null, '', '/');
 }
 
+// power button: off = screen dark and no price refresh, like the sleep time; works without saving
+function power(off) {
+  const b = $('#power');
+  b.classList.toggle('off', off);
+  b.querySelector('span').textContent = off ? 'Off' : 'On';
+  b.disabled = false;
+}
+$('#power').onclick = () => {
+  const b = $('#power');
+  b.disabled = true;
+  fetch(b.classList.contains('off') ? '/on' : '/off', {method: 'POST'})
+    .then(r => r.json()).then(r => power(r.off))
+    .catch(() => { b.disabled = false; b.querySelector('span').textContent = 'Retry'; });
+};
+
 // switches, and the blocks that only matter when a switch is on (data-if="name" / "!name")
 const SWITCHES = ['show_total', 'show_assets', 'single', 'show_gain', 'show_value', 'show_change', 'sleep'];
 function deps() {
@@ -233,6 +253,7 @@ function fill(c) {
                    'sleep_from', 'sleep_to', 'tz']) f.elements[k].value = s[k];
   for (const k of SWITCHES) f.elements[k].checked = s[k];
   deps();
+  power(c.off);
   f.pw.placeholder = c.pw ? 'saved - leave empty to keep' : '';
   for (const n of c.nets) $('#nets').append(new Option(n));
 

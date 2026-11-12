@@ -41,6 +41,16 @@ def drop(*names: str) -> None:
     gc.collect()
 
 
+def _exists(path: str) -> bool:
+    """File on flash?"""
+    import os
+    try:
+        os.stat(path)
+        return True
+    except OSError:
+        return False
+
+
 class App:
     """Shared state for setup + normal mode."""
 
@@ -80,6 +90,8 @@ class App:
         self._reboot = 0
         self.just_saved = False  # set by the portal, handled in serve()
         self.web_until = 0       # portal in use: no refresh (soft reset) until then
+        self.nap_at = 0          # next sleep window / power check
+        self.off = _exists("/off")  # switched off in the portal: dark like the sleep window
         self._press = 0
         self._shown_s = -1
         self.btn = machine.Pin(config.BUTTON_PIN, machine.Pin.IN, machine.Pin.PULL_UP)

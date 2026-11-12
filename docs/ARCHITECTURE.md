@@ -153,6 +153,7 @@ Limits per refresh: `FETCH_BATCH` assets, `FETCH_MAX_S` seconds, 10 s per reques
 | `GET /`, unknown paths | `www/index.html` |
 | `GET /s.css` | stylesheet |
 | `GET /cfg.json` | settings, asset lines, visible networks. For passwords only whether one is set |
+| `POST /on`, `POST /off` | power switch: flag file `/off`, takes effect at once (same path as the sleep window) |
 | `POST /save` | body goes to `/pending.form`, then restart |
 
 The form is a static file. A script loads `/cfg.json`, fills the fields and clones one row per asset. Save stays disabled until that worked. The form is sent by script and retried for about a minute while the display is busy; after any portal request the device holds back the next refresh for `WEB_HOLD_S` (a refresh restarts the VM and drops the web server). `net.save.apply_pending()` applies the stored form at the next boot, row by row.
@@ -166,6 +167,7 @@ The form is a static file. A script loads `/cfg.json`, fills the fields and clon
 | `/prices.bin` | per asset: price, base (f32), valid flag, currency, last error | removed |
 | `/secret.bin` | AES: Wi-Fi password, salted hash of the page password | removed |
 | `/ap.key` | AES: setup Wi-Fi password | kept |
+| `/off` | exists while the display is switched off in the portal | removed |
 | `/pending.form` | raw form body between save and restart | |
 
 Files are written to `.tmp` and renamed. Secrets use AES-256-CBC with a key derived from the chip id: the files are useless on another device, but there is no protection against someone with USB access.

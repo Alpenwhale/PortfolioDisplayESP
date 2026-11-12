@@ -80,8 +80,8 @@ def start(state):
         time.sleep_ms(50)
 
     # connected: first prices via a refresh soft reset (this message stays up meanwhile).
-    # without assets there's nothing to fetch, go straight to the loop + settings url
-    if not reason and app.n:
+    # without assets (or switched off) there's nothing to fetch, go straight to the loop
+    if not reason and app.n and not app.off:
         app.message("Loading prices", [])
         app.refresh(info=1)
     app.show_info = 1

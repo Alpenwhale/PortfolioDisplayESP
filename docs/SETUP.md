@@ -32,6 +32,8 @@ Every save restarts the device (about 15 s). If the phone stays in the same Wi-F
 |---|---|
 | <img src="img/portal/1_first_setup.png" width="300"> | <img src="img/portal/2_configured.png" width="300"> |
 
+**On / Off** (button left of the title): switches the display off and on right away, no Save needed. Off works like the sleep time: screen dark, no price refresh. It stays off after a restart until switched on again.
+
 **Wi-Fi**
 
 <img src="img/portal/wifi.png" width="300">

@@ -37,7 +37,7 @@ ASSETS = [
 NETS = ["FRITZ!Box 7590 XY", "Home", "Neighbour-5G"]
 
 CONFIGURED = {"s": dict(BASE, ssid="Home", period="ytd", sleep=1), "items": ASSETS,
-              "pw": True, "pp": True, "max": 50, "reset_s": 10, "nets": NETS}
+              "off": False, "pw": True, "pp": True, "max": 50, "reset_s": 10, "nets": NETS}
 
 # name -> (path, cfg.json). "?only=<section>" shows just that part of the form (for the field tables)
 VIEWS = {

@@ -40,16 +40,16 @@ def loop(app) -> None:
     app.slide %= max(1, app.pages)
     app.next_fetch = later(every(app))
     app.next_slide = later(app.slide_ms())
-    app.asleep, check = False, 0
+    app.asleep = False
 
     while True:
         app.serve()
         app.button()
         app.maybe_reboot()
 
-        # sleep window, checked twice a minute (clock module only loaded for the check)
-        if due(check):
-            check = later(30000)
+        # sleep window + power switch, checked twice a minute or right after the switch
+        if not app.nap_at or due(app.nap_at):
+            app.nap_at = later(30000)
             nap(app)
 
         # refresh interval up -> fetch phase (not while the info screen, a button press, a reboot or
@@ -97,11 +97,14 @@ def loop(app) -> None:
 
 
 def nap(app) -> None:
-    """Enter / leave the sleep window: screen dark (backlight / OLED off if possible), no refresh."""
-    from core import clock
-    now = clock.asleep(app.s)
-    del clock
-    drop("core.clock")
+    """Enter / leave the sleep window or the off state: screen dark (backlight / OLED off if
+    possible), no refresh."""
+    now = app.off
+    if not now:
+        from core import clock
+        now = clock.asleep(app.s)
+        del clock
+        drop("core.clock")
     if now == app.asleep:
         return
     app.asleep = now
