@@ -115,7 +115,9 @@ class App:
         drop("ui.layout", "core.screens", "core.setup", "ui.card", "ui.fmt", "ui.font")
 
     def message(self, title: str, lines: list) -> None:
-        """Full-screen text, then free the layout again."""
+        """Full-screen text, then free the layout again. Lights a dark panel (reset countdown)."""
+        if getattr(self, "asleep", False):
+            self.d.power(True)
         self.ui.message(title, lines)
         self.release_ui()
 

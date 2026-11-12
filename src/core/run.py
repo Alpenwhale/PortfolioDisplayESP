@@ -69,12 +69,13 @@ def loop(app) -> None:
         if app.info_until:
             app.info_until, app.dirty = 0, True
 
-        # asleep: screen stays dark, nothing to draw
+        # asleep / off: screen stays dark, nothing to draw (back to dark after the info screen)
         if app.asleep:
             if app.dirty:
                 app.dirty = False
                 app.d.fill(0)
                 app.d.show()
+                app.d.power(False)
             time.sleep_ms(30)
             continue
 
@@ -118,7 +119,9 @@ def nap(app) -> None:
 
 
 def info(app) -> None:
-    """Settings url page (rotates on small screens)."""
+    """Settings url page (rotates on small screens). Shown asleep / off too: FLASH always works."""
+    if app.asleep:
+        app.d.power(True)
     from core import setup as s
     pages = s.info_page(app.ui, app.info_page, app.ip)
     del s
