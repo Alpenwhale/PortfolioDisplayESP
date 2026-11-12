@@ -11,7 +11,7 @@ The display images are rendered by the real display code (`tools/sim.py`), left 
 
 ## A1. First start
 
-1. Power the device over USB. It shows `Starting...`, then the setup screen.
+1. Power the device over its USB-C socket (any phone charger). It shows `Starting...`, then the setup screen.
 2. Scan the QR code **Scan to join Wi-Fi**. The phone joins `Portfolio-XXXX`. The password is fixed per device and also shown as text.
 3. Scan **Scan to open setup** or open `http://192.168.4.1`.
 
@@ -148,7 +148,35 @@ Asset and total page look the same:
 
 The OLED only fits lines 1-3. Dots at the bottom mark the slideshow position.
 
-The total page adds up all assets that have a quantity; the own performance uses those that also have a buy price. Assets without these values are left out, and a `*` behind the own performance shows that something was left out.
+**Pages** (section Slideshow)
+
+| Switches on | Pages |
+|---|---|
+| Portfolio page + One page per asset | portfolio page first, then one page per asset |
+| One page per asset | one page per asset |
+| Portfolio page | one page with the total of all holdings |
+| Only the first asset | one fixed page, no slideshow |
+
+With both page switches off the device falls back to one page per asset.
+
+**Own performance** (section Values, line 5 on every page)
+
+| Mode | Shows | Needs |
+|---|---|---|
+| in percent | gain or loss since buying in % | buy price |
+| as amount | gain or loss since buying in money | buy price + quantity (without quantity: per share, marked `*`) |
+| off | no line | nothing |
+
+**Portfolio page**
+
+| Line | Switch | Counts |
+|---|---|---|
+| change in % (headline) | always | assets with a quantity |
+| value of all holdings | Portfolio value | assets with a quantity |
+| change in money | Portfolio change in money | assets with a quantity |
+| own performance | Own performance | assets with quantity + buy price |
+
+Assets without the needed values are left out, and a `*` behind the own performance shows that something was left out. Everything off except the headline leaves a minimal page.
 
 | | 0.96" OLED | 2.8" TFT |
 |---|---|---|
@@ -157,8 +185,7 @@ The total page adds up all assets that have a quantity; the own performance uses
 | portfolio total | <img src="img/128x64/total.png" width="256"> | <img src="img/320x240/total.png" width="320"> |
 | own performance as amount | | <img src="img/320x240/total_abs.png" width="320"> |
 | own performance off | | <img src="img/320x240/asset0_nogain.png" width="320"> |
-| portfolio value off | <img src="img/128x64/total_novalue.png" width="256"> | <img src="img/320x240/total_novalue.png" width="320"> |
-| value and change off | | <img src="img/320x240/total_minimal.png" width="320"> |
+| portfolio, value and change off | | <img src="img/320x240/total_minimal.png" width="320"> |
 | only the first asset | <img src="img/128x64/single.png" width="256"> | <img src="img/320x240/single.png" width="320"> |
 | English number format | <img src="img/128x64/asset1_en.png" width="256"> | <img src="img/320x240/asset1_en.png" width="320"> |
 | brightness 40 % | | <img src="img/320x240/dimmed.png" width="320"> |
@@ -176,7 +203,7 @@ Messages:
 
 ## B1. Requirements
 
-- USB driver for the board's serial chip (CH340 or CP2102). The port shows up as `COMx`.
+- A USB-C data cable (not a charge-only one) and the driver for the board's serial chip (CH340 on the NodeMCU v3). The port shows up as `COMx`.
 - [uv](https://docs.astral.sh/uv/). It installs the right Python version itself.
 - MicroPython firmware for the ESP8266 from <https://micropython.org/download/ESP8266_GENERIC/>, put the `.bin` into the project folder.
 
