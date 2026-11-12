@@ -1,6 +1,6 @@
 # PortfolioDisplay
 
-A small desk display for your stocks, ETFs and funds. MicroPython on an ESP8266 with a 2.8" TFT or a 0.96" OLED, configured from your phone.
+A small desk display for your stocks, ETFs and funds. MicroPython on an ESP8266 development board (NodeMCU v3 with USB-C) with a 2.8" TFT or a 0.96" OLED, configured from your phone.
 
 | Your portfolio | One asset | Down day |
 |---|---|---|

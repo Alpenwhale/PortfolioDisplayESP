@@ -6,15 +6,29 @@ Supported boards and displays, wiring, and the matching settings in `src/config.
 
 | Board | 2.8" TFT ILI9341 (SPI) | ST7789 TFT (SPI) | 0.96" OLED SSD1306 (I2C) |
 |---|---|---|---|
-| NodeMCU ESP8266 (ESP-12F) | tested | supported | supported |
+| NodeMCU v3 dev board (ESP-12F, USB-C) | tested | supported | supported |
 | Wemos/LOLIN D1 mini | supported | supported | supported |
 | bare ESP-12E/F module | supported | supported | supported |
 | ESP32 DevKit | small change | small change | small change |
 
-- **tested**: runs on real hardware. Reference: NodeMCU-style ESP8266 board (CH340) + 2.8" ILI9341 240x320 module without CS pin, MicroPython 1.29.
+- **tested**: runs on real hardware. Reference: NodeMCU v3 development board with USB-C and CH340 + 2.8" ILI9341 240x320 module without CS pin, MicroPython 1.29.
 - **supported**: covered by the code, not yet run on hardware.
 - **ESP32**: needs the ESP32 firmware and `make_spi()` in `display/__init__.py` has to pass the pins (`SPI(1, sck=..., mosi=...)`).
 - Not supported: SH1106 OLEDs (different driver), 128x32 OLEDs (too low), parallel displays, ESP-01.
+
+## The board
+
+The reference build uses a **NodeMCU v3 development board**, not a bare ESP8266. On the board the ESP8266 sits on an ESP-12F module with 4 MB flash and the antenna; the board adds a USB-C socket, a CH340 USB-to-serial chip, a 5 V to 3.3 V regulator, the RST and FLASH buttons and pin headers. Power and flashing both go through one USB-C cable.
+
+| | Development board (NodeMCU v3) | Bare module (ESP-12F) |
+|---|---|---|
+| Power | USB-C, regulator on board | own 3.3 V supply |
+| Flashing | same USB-C cable | separate USB-to-serial adapter |
+| Buttons | RST + FLASH on board | to be added |
+| Connecting | jumper wires on pin headers | soldering |
+| Size | about 58 x 31 mm | about 24 x 16 mm |
+| Power draw | USB chip, regulator and LED draw extra | lower |
+| Quirk | the USB chip can hold the ESP8266 in reset, see `tools/mpr.py` | none |
 
 ## ESP8266 pins
 
@@ -36,7 +50,7 @@ Supported boards and displays, wiring, and the matching settings in `src/config.
 
 NodeMCU boards have two buttons next to the USB port: **RST** and **FLASH** (sometimes **BOOT**). A D1 mini only has RST; add a push button from D3 to GND.
 
-Power: the 3V3 pin feeds ESP, TFT and backlight without problems.
+Power: the board runs from USB-C; its 3V3 pin feeds the display and backlight without problems.
 
 ## TFT over SPI (ILI9341 / ST7789)
 
