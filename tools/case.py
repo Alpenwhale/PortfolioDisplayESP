@@ -29,18 +29,18 @@ from PIL import Image, ImageDraw
 # DECOR          candle chart on the "chin" or the right side "wall"
 # BEZEL          CRT look: front frame this much wider per side (0 = plain box)
 # ROOF           CRT look: roof line as (y, drop) points, () = flat
-# COVER_ROT      cover print orientation: (180,0,0) roof down, (-90,0,0) back panel down
+# SPLIT          True: back panel + roof that slides in from the back (flat roof only)
 VARIANTS = {
     # ZJY280S0800TG01, blue 8 pin board; from photos, PCB edge 0.7 past the glass
     "tft": dict(PCB_L=83.0, PCB_H=51.4, STACK_T=4.8, ACT_W=57.6, ACT_H=43.2, ACT_END=15.8,
                 ACT_Z=0.0, HEADER=-1, HEADER_SPAN=24.0, LIFT=9.0, DISP_X=0.0,
-                ESP_ALONG="x", DECOR="chin", BEZEL=0.0, ROOF=(), COVER_ROT=(180, 0, 0)),
+                ESP_ALONG="x", DECOR="chin", BEZEL=0.0, ROOF=(), SPLIT=True),
     # 0.96" SSD1306 I2C, 4 pins on top; their plugs run back between the board's pin rows
     # roof: wires on the pin rows need ~30 mm up to y ~60, behind that only the USB plug
     "oled": dict(PCB_L=27.3, PCB_H=27.8, STACK_T=2.8, ACT_W=21.74, ACT_H=10.86, ACT_END=2.78,
                  ACT_Z=1.5, HEADER=0, HEADER_SPAN=0.0, LIFT=2.0, DISP_X=0.0,
                  ESP_ALONG="y", DECOR="wall", BEZEL=2.5,
-                 ROOF=((44, 0), (61, 3.5), (74, 14)), COVER_ROT=(-90, 0, 0)),
+                 ROOF=((44, 0), (61, 3.5), (74, 14)), SPLIT=False),
 }
 BEZEL_D = 10.0       # depth of the wider front frame
 
@@ -74,6 +74,10 @@ ROOF_T = 2.0
 PANEL_T = 1.6
 BACK_LIP = 1.4                       # frame around the back panel
 CH_IN = 1.6                          # rails stick out of the side wall
+LEDGE = 1.4                          # split roof: ledge under the wall top, 45 deg underside
+LEDGE_H = 1.0                        # its straight part below the roof
+TONGUE = 1.4                         # roof rail inside the ledge, hooks under it
+HOOK_H = 1.2
 
 
 def use(name: str) -> None:
@@ -136,6 +140,40 @@ def box(x0: float, x1: float, y0: float, y1: float, z0: float, z1: float) -> Man
     return Manifold.cube((x1 - x0, y1 - y0, z1 - z0)).translate((x0, y0, z0))
 
 
+def prism_xz(pts: list, y0: float, y1: float) -> Manifold:
+    """Polygon in the XZ plane, extruded from y0 to y1."""
+    cs = [(x, -z) for x, z in pts]  # rotate(-90 about x) maps section v to -z
+    area = sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(cs, cs[1:] + cs[:1]))
+    sec = CrossSection([cs if area > 0 else cs[::-1]])
+    return Manifold.extrude(sec, y1 - y0).rotate((-90, 0, 0)).translate((0, y0, 0))
+
+
+def dovetail() -> tuple[list, list, float]:
+    """Right side (x > 0) of the split roof joint: (wall ledge, roof hook, hook bottom z).
+
+    Ledge hangs from the wall top with a 45 deg underside (prints standing), the roof hook
+    reaches under it with the same 45 deg face (prints roof down).
+    """
+    xw, zt = IW / 2, Z_TOP
+    ledge = [(xw, zt), (xw - LEDGE, zt), (xw - LEDGE, zt - LEDGE_H), (xw, zt - LEDGE_H - LEDGE)]
+    xt = xw - LEDGE - FIT                       # tongue outer face
+    zb = zt - LEDGE_H - LEDGE - FIT - HOOK_H    # hook bottom
+    hook = [(xt - TONGUE, zt + 0.01), (xt, zt + 0.01), (xt, zt - LEDGE_H - FIT),
+            (xw - FIT, zt - LEDGE_H - LEDGE - FIT), (xw - FIT, zb), (xt - TONGUE, zb)]
+    return ledge, hook, zb
+
+
+def hook_path() -> Manifold:
+    """Room the roof hooks need while sliding in from the back (rails, lips, panel corners)."""
+    _, hook, zb = dovetail()
+    x0 = hook[0][0] - FIT
+    out = Manifold()
+    for s in (-1, 1):
+        xa, xb = sorted((s * x0, s * IW / 2))
+        out += box(xa, xb, Y_RIB, DEPTH + 1, zb - FIT, Z_TOP + 1)
+    return out
+
+
 def rrect(w: float, h: float, r: float) -> CrossSection:
     """Centered rounded rectangle."""
     r = min(r, w / 2 - 0.01, h / 2 - 0.01)
@@ -189,6 +227,13 @@ def shell_local(bezel: bool = True) -> Manifold:
 
     # walls follow the falling roof
     m ^= under_roof()
+
+    # split roof: ledges from the display slot to the back channel, free path behind
+    if SPLIT:
+        ledge, _, _ = dovetail()
+        for s in (-1, 1):
+            m += prism_xz([(s * x, z) for x, z in ledge], WALL + ST + RAIL, Y_RIB)
+        m -= hook_path()
 
     # detent dimples in the inner rails
     for s in (-1, 1):
@@ -284,11 +329,12 @@ def shell() -> Manifold:
     return shear(shell_local()) + add - cut
 
 
-def cover_local() -> Manifold:
-    """Back panel + roof, slides down the rails (local frame)."""
-    # roof outline: visor, wider over the CRT front frame
+def cover_local() -> tuple[Manifold, Manifold]:
+    """(back panel, roof), local frame. One part unless SPLIT: then the panel slides down the
+    rails and the roof slides in from the back over it, hooked under the wall ledges."""
+    # roof outline: visor, wider over the CRT front frame; split roof also covers the channel
     yb = DEPTH - BACK_LIP - FIT
-    mask = outline(W + 1.0, -VISOR, yb, R_FRONT + 1)
+    mask = outline(W + 1.0, -VISOR, DEPTH if SPLIT else yb, R_FRONT + 1)
     if BEZEL:
         mask += outline(WF + 1.0, -VISOR, BEZEL_D, R_FRONT + 1)
     mask = Manifold.extrude(mask, 300).translate((0, 0, -100))
@@ -300,7 +346,8 @@ def cover_local() -> Manifold:
     roof = (under_roof(ROOF_T) - under_roof()) ^ mask
     edge = Manifold.cylinder(WF + 4, ROOF_T / 2, circular_segments=SEG).rotate((0, 90, 0))
     edge = edge.translate((-WF / 2 - 2, -VISOR + ROOF_T / 2, Z_TOP + ROOF_T / 2))
-    roof = roof ^ Manifold.batch_hull([edge, box(-WF, WF, yb - 1, yb, -50, Z_TOP + ROOF_T)])
+    roof = roof ^ Manifold.batch_hull([edge, box(-WF, WF, (DEPTH if SPLIT else yb) - 1, DEPTH if SPLIT else yb,
+                                                 -50, Z_TOP + ROOF_T)])
 
     # panel in the channel up into the roof, vents as a rising bar chart
     px = IW / 2 - FIT
@@ -322,18 +369,30 @@ def cover_local() -> Manifold:
         cap = Manifold.sphere(1.2, SEG).translate((s * (IW / 2 - 0.9), Y_SLOT + FIT + 0.75, BASE_T + 4))
         panel += cap ^ box(-W, W, 0, yb, 0, Z_TOP)
 
+    # split: hooks along the whole roof (front end stops at the display slot), panel corners
+    # free for them, two snap bumps that click over the panel top
+    if SPLIT:
+        _, hook, _ = dovetail()
+        for s in (-1, 1):
+            roof += prism_xz([(s * x, z) for x, z in hook], WALL + ST + RAIL + FIT, DEPTH)
+            roof += Manifold.sphere(1.5, SEG).translate((s * 12, Y_SLOT - 1.2, Z_TOP + 1.0)) ^ \
+                box(-W, W, -50, DEPTH, Z_TOP - 1, Z_TOP + 1)
+        return panel - hook_path(), roof
+
     # locating rims under the roof, 45 deg end so they print without support
     for s in (-1, 1):
         x0, x1 = sorted((s * (IW / 2 - FIT), s * (IW / 2 - FIT - 1.2)))
         y0, y1 = WALL + ST + RAIL + 1, (min(Y_RIB, ROOF[0][0]) if ROOF else Y_RIB) - 1
         panel += Manifold.batch_hull([box(x0, x1, y0, y1 - 3, Z_TOP - 3, Z_TOP + 0.5),
                                       box(x0, x1, y0, y1, Z_TOP - 0.01, Z_TOP + 0.5)])  # into the roof
-    return roof + panel
+    return roof + panel, Manifold()
 
 
-def cover() -> Manifold:
-    """Cover in world frame (assembled view)."""
-    return shear(cover_local())
+def cover() -> tuple[Manifold, Manifold]:
+    """Cover part(s) in world frame = assembled. Printed like this too: the back panel leans
+    with the rails, a part printed unsheared would sit 12 deg off once it is in."""
+    a, b = cover_local()
+    return shear(a), shear(b)
 
 
 def fit_frame() -> Manifold:
@@ -454,27 +513,36 @@ def main() -> None:
 
     for name in VARIANTS:
         use(name)
-        sh, cv = shell(), cover()
+        sh, (cv, roof) = shell(), cover()
 
-        # print parts: case as one 3MF plate, fit frame as STL
-        parts = (("shell", to_print(sh, (0, 0, 0))),
-                 ("cover", to_print(cover_local(), COVER_ROT)),
-                 ("fit_frame", to_print(fit_frame(), (90, 0, 0))))
+        # print parts: back face down for the leaning panel / cover, split roof upside down
+        down = (TILT - 90, 0, 0)
+        if SPLIT:
+            parts = [("shell", to_print(sh, (0, 0, 0))), ("panel", to_print(cv, down)),
+                     ("roof", to_print(roof, (180, 0, 0)))]
+        else:
+            parts = [("shell", to_print(sh, (0, 0, 0))), ("cover", to_print(cv, down))]
+        parts.append(("fit_frame", to_print(fit_frame(), (90, 0, 0))))
         for part, m in parts:
             bb = m.bounding_box()
             print(f"{name} {part}: {m.volume() / 1000:.1f} cm3, "
                   f"{bb[3] - bb[0]:.0f} x {bb[4] - bb[1]:.0f} x {bb[5] - bb[2]:.0f} mm")
-        write_3mf([(f"{name}_{p}", m) for p, m in parts[:2]], OUT / f"{name}_case.3mf")
-        write_stl(parts[2][1], OUT / f"{name}_fit_frame.stl")
+        write_3mf([(f"{name}_{p}", m) for p, m in parts[:-1]], OUT / f"{name}_case.3mf")
+        write_stl(parts[-1][1], OUT / f"{name}_fit_frame.stl")
 
         # single parts for tools/bambu_project.py
-        for part, m in parts[:2]:
+        for part, m in parts[:-1]:
             write_stl(m, BUILD / f"{name}_{part}.stl")
+        for old in ("cover", "panel", "roof"):
+            if old not in dict(parts):
+                (BUILD / f"{name}_{old}.stl").unlink(missing_ok=True)
 
-        # previews for the docs
-        render([(sh, black), (cv, black)], IMG / f"{name}_front.png", yaw=-30, pitch=12)
-        render([(sh, black), (cv, black)], IMG / f"{name}_back.png", yaw=150, pitch=15)
-        render([(sh, black), (cv.translate((0, 20, 40)), grey)], IMG / f"{name}_open.png", yaw=150, pitch=30)
+        # previews for the docs; opened: panel lifted, roof slid back
+        closed = [(sh, black), (cv, black), (roof, black)]
+        render(closed, IMG / f"{name}_front.png", yaw=-30, pitch=12)
+        render(closed, IMG / f"{name}_back.png", yaw=150, pitch=15)
+        opened = [(sh, black), (cv.translate((0, 25 * TN, 25)), grey), (roof.translate((0, 45, 30)), grey)]
+        render(opened, IMG / f"{name}_open.png", yaw=150, pitch=30)
 
 
 if __name__ == "__main__":

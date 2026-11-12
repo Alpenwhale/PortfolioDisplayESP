@@ -74,7 +74,8 @@ def write(kind: str, name: str, extra: dict) -> Path:
 def export(variant: str, settings: str, filament: Path, sliced: bool) -> Path:
     """Let Bambu Studio arrange one plate and export it."""
     # warmup first, so it is printed first on each layer
-    parts = [BUILD / "warmup.stl", BUILD / f"{variant}_shell.stl", BUILD / f"{variant}_cover.stl"]
+    parts = [BUILD / "warmup.stl", BUILD / f"{variant}_shell.stl"]
+    parts += [p for p in (BUILD / f"{variant}_{n}.stl" for n in ("cover", "panel", "roof")) if p.exists()]
     out = BUILD / f"{variant}_case.gcode.3mf" if sliced else OUT / f"{variant}_case.3mf"
     cmd = [str(STUDIO / "bambu-studio.exe"), "--arrange", "1",
            "--load-settings", settings, "--load-filaments", str(filament),
