@@ -2,7 +2,8 @@
 
 Needs Bambu Studio installed and build/case/*.stl from tools/case.py.
 Writes 3d/bambu/<variant>_case.3mf (settings included, not sliced).
-Run: uv run tools/bambu_project.py [--slice] [--machine NAME] [--process NAME] [--filament NAME]
+Run: uv run tools/bambu_project.py [--slice] [--only tft:panel,roof] [--machine NAME] [--process NAME] [--filament NAME]
+--only: just these parts of one case, written to build/case/ (reprints).
 """
 import argparse
 import json
@@ -71,12 +72,16 @@ def write(kind: str, name: str, extra: dict) -> Path:
     return path
 
 
-def export(variant: str, settings: str, filament: Path, sliced: bool) -> Path:
+def export(variant: str, settings: str, filament: Path, sliced: bool, only: list = ()) -> Path:
     """Let Bambu Studio arrange one plate and export it."""
     # warmup first, so it is printed first on each layer
     parts = [BUILD / "warmup.stl", BUILD / f"{variant}_shell.stl"]
     parts += [p for p in (BUILD / f"{variant}_{n}.stl" for n in ("cover", "panel", "roof")) if p.exists()]
-    out = BUILD / f"{variant}_case.gcode.3mf" if sliced else OUT / f"{variant}_case.3mf"
+    if only:
+        parts = [BUILD / f"{variant}_{n}.stl" for n in only]
+        out = BUILD / f"{variant}_{'_'.join(only)}{'.gcode' if sliced else ''}.3mf"
+    else:
+        out = BUILD / f"{variant}_case.gcode.3mf" if sliced else OUT / f"{variant}_case.3mf"
     cmd = [str(STUDIO / "bambu-studio.exe"), "--arrange", "1",
            "--load-settings", settings, "--load-filaments", str(filament),
            *(["--slice", "0"] if sliced else []),
@@ -92,6 +97,7 @@ def main() -> None:
     ap.add_argument("--process", default=PROCESS)
     ap.add_argument("--filament", default=FILAMENT)
     ap.add_argument("--slice", action="store_true", help="also slice into build/case/ to check")
+    ap.add_argument("--only", default="", help="variant:part,part, e.g. tft:panel,roof")
     a = ap.parse_args()
 
     # presets
@@ -100,6 +106,10 @@ def main() -> None:
     p = write("process", a.process, PROCESS_SET)
     f = write("filament", a.filament, FILAMENT_SET)
 
+    if a.only:
+        v, names = a.only.split(":")
+        print(export(v, f"{m};{p}", f, a.slice, names.split(",")))
+        return
     for v in VARIANTS:
         print(export(v, f"{m};{p}", f, a.slice))
 

@@ -323,10 +323,21 @@ def esp_parts() -> tuple[Manifold, Manifold]:
     return add, cut
 
 
+def display_body() -> Manifold:
+    """The display as the rigid part it is, world frame: leans back by TILT (rotated, not
+    sheared), front bottom edge on the rest at Z_PCB."""
+    d = box(DISP_X - PCB_L / 2 - 0.5, DISP_X + PCB_L / 2 + 0.5, 0, STACK_T + 0.3, 0, PCB_H)
+    return d.rotate((-TILT, 0, 0)).translate((0, WALL + 0.25 + Z_PCB * TN, Z_PCB))
+
+
 def shell() -> Manifold:
-    """Main body in world frame = print orientation."""
+    """Main body in world frame = print orientation.
+
+    The rest under the display gets the display's slope cut in: flat, its back edge would
+    lift the display (TFT ~1 mm, OLED ~0.6 mm) and the window would hide the top of the image.
+    """
     add, cut = esp_parts()
-    return shear(shell_local()) + add - cut
+    return shear(shell_local()) + add - cut - display_body()
 
 
 def cover_local() -> tuple[Manifold, Manifold]:
