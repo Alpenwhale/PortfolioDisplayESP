@@ -4,7 +4,7 @@ __pycache__/
 build/
 /*.bin
 src/secrets.py
-dev.md
+dev/
 
 # sliced / slicer project files, keep only the generated models
 3d/*.gcode
