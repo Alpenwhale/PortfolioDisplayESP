@@ -43,7 +43,8 @@ src/
     oled.py        SSD1306 over I2C
   fonts/*.bin      built by tools/make_fonts.py
   www/             portal: index.html, saved.html, s.css
-tools/             deploy, simulator, screenshots, diagnostics
+tools/             deploy, simulator, screenshots, diagnostics, case model
+3d/                printable cases, built by tools/case.py
 ```
 
 ```
@@ -179,3 +180,5 @@ Files are written to `.tmp` and renamed. Secrets use AES-256-CBC with a key deri
 | `portal_shots.py` | screenshots of the real portal page with example data |
 | `make_fonts.py` | TTF -> bitmap fonts |
 | `diag/` | display diagnostics and a screenshot tool for the real panel |
+| `case.py` | parametric 3D cases (TFT + OLED), writes `3d/` and `docs/img/3d/`, see [3D.md](3D.md) |
+| `bambu_project.py` | print-ready Bambu Studio projects in `3d/bambu/` |

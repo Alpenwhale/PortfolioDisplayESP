@@ -44,6 +44,7 @@ Then scan the QR code on the display. Details in [docs/SETUP.md](docs/SETUP.md).
 - [docs/SETUP.md](docs/SETUP.md): using the device, flashing, development
 - [docs/HARDWARE.md](docs/HARDWARE.md): boards, displays, wiring
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the code works
+- [docs/3D.md](docs/3D.md): 3D printed desk cases for both displays
 
 ## License
 
