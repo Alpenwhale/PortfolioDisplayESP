@@ -5,3 +5,9 @@ build/
 /*.bin
 src/secrets.py
 dev.md
+
+# sliced / slicer project files, keep only the generated models
+3d/*.gcode
+3d/*.gcode.3mf
+3d/*.bbl
+3d/*_plate_*
